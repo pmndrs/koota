@@ -1,14 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import {
-  createChanged,
-  createWorld,
-  type Entity,
-  getStore,
-  relation,
-  required,
-  trait,
-  type Trait,
-} from '../src';
+import { createChanged, createWorld, relation, required, trait, type Trait } from '../../src';
 
 class TestClass {
   public name: string;
@@ -38,13 +29,6 @@ describe('Trait', () => {
 
   beforeEach(() => {
     world.reset();
-  });
-
-  it('should create a trait', () => {
-    const Test = trait({ x: 0, y: 0 });
-
-    expect(Object.keys(Test)).toContain('schema');
-    expect(typeof Test === 'function').toBe(true);
   });
 
   it('should throw an error if the schema contains an object', () => {
@@ -83,15 +67,6 @@ describe('Trait', () => {
     expect(entity.has(Tag)).toBe(false);
   });
 
-  it('should throw when setting a trait the entity does not have', () => {
-    const entity = world.spawn(Position);
-    expect(() => entity.set(Test, { current: 2 })).toThrow(/Add the trait/);
-
-    entity.add(Test);
-    entity.set(Test, { current: 2 });
-    expect(entity.get(Test)?.current).toBe(2);
-  });
-
   it('rejects setting an absent or removed trait before invoking its callback', () => {
     const sibling = world.spawn(Position({ x: 5 }));
     const entity = world.spawn();
@@ -108,19 +83,6 @@ describe('Trait', () => {
     expect(sibling.get(Position)).toEqual({ x: 5, y: 0 });
   });
 
-  it('should create SoA stores when registered by adding', () => {
-    const entity = world.spawn();
-
-    entity.add(Position);
-    const store = getStore(world, Position);
-
-    expect(store.x).toBeDefined();
-    expect(store.y).toBeDefined();
-    const eid = entity & 0xfffff;
-    expect(store.x[eid >>> 10][eid & 1023]).toBe(0);
-    expect(store.y[eid >>> 10][eid & 1023]).toBe(0);
-  });
-
   it('should set defaults based on the schema', () => {
     const entity = world.spawn();
 
@@ -133,16 +95,6 @@ describe('Trait', () => {
       bool: true,
       arr: ['a', 'b', 'c'],
     });
-  });
-
-  it('uses updated defaults for later entities without rewriting existing values', () => {
-    const Value = trait({ value: 0 });
-    const first = world.spawn(Value);
-    Value.schema.value = 1234567;
-    for (let i = 0; i < 300; i++) world.spawn();
-    const later = world.spawn(Value);
-    expect(first.get(Value)).toEqual({ value: 0 });
-    expect(later.get(Value)).toEqual({ value: 1234567 });
   });
 
   it('should override defaults with params', () => {
@@ -182,45 +134,6 @@ describe('Trait', () => {
       arr: ['g', 'h', 'i'],
       class: new TestClass('Me'),
     });
-  });
-
-  it('should create tags with empty stores', () => {
-    const IsTag = trait();
-    const entity = world.spawn();
-
-    entity.add(IsTag);
-    expect(entity.has(IsTag)).toBe(true);
-
-    const store = getStore(world, IsTag);
-    expect(store).toMatchObject({});
-  });
-
-  // This tests for the trait bitmask limit of 32.
-  it('should correctly register more than 32 traits', () => {
-    const entity = world.spawn();
-
-    Array.from({ length: 1024 }, () => trait()).forEach(() => {
-      entity.add();
-    });
-  });
-
-  it('should add traits to entities after recycling', () => {
-    const entities: Entity[] = [];
-
-    for (let i = 0; i < 10; i++) {
-      entities.push(world.spawn());
-    }
-
-    for (let i = 0; i < 10; i++) {
-      entities.pop()?.destroy();
-    }
-
-    for (let i = 0; i < 10; i++) {
-      entities.push(world.spawn());
-    }
-
-    entities[0].add(Position);
-    expect(entities[0].has(Position)).toBe(true);
   });
 
   it('should set trait params', () => {
@@ -291,8 +204,9 @@ describe('Trait', () => {
     expect(other.has(MeshRef) || other.has(View)).toBe(false);
   });
 
-  it('requires input when adding a required AoS trait', () => {
+  it('requires input when adding a required AoS trait, also when widened to Trait', () => {
     const Ref = trait(required<{ visible: boolean }>());
+    const Widened: Trait = Ref;
     const entity = world.spawn();
 
     // @ts-expect-error a required AoS trait cannot be added bare
@@ -303,6 +217,12 @@ describe('Trait', () => {
     expect(() => world.spawn(Ref)).toThrow('REQUIRED_VALUE');
     // @ts-expect-error a required AoS trait needs its value
     expect(() => entity.add(Ref())).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => entity.add(Widened)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => world.add(Widened)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => world.spawn(Widened)).toThrow('REQUIRED_VALUE');
 
     const value = { visible: true };
     entity.add(Ref(value));
@@ -310,25 +230,7 @@ describe('Trait', () => {
     expect(entity.get(Ref)).toBe(value);
     expect(world.get(Ref)).toBe(value);
     expect(world.spawn(Ref(value)).get(Ref)).toBe(value);
-  });
-
-  it('requires input when a required AoS trait is widened to Trait', () => {
-    const Ref: Trait = trait(required<{ visible: boolean }>());
-    const entity = world.spawn();
-
-    // @ts-expect-error an unspecified schema may require input
-    expect(() => entity.add(Ref)).toThrow('REQUIRED_VALUE');
-    // @ts-expect-error an unspecified schema may require input
-    expect(() => world.add(Ref)).toThrow('REQUIRED_VALUE');
-    // @ts-expect-error an unspecified schema may require input
-    expect(() => world.spawn(Ref)).toThrow('REQUIRED_VALUE');
-
-    const value = { visible: true };
-    entity.add(Ref(value));
-    world.add(Ref(value));
-    expect(entity.get(Ref)).toBe(value);
-    expect(world.get(Ref)).toBe(value);
-    expect(world.spawn(Ref(value)).get(Ref)).toBe(value);
+    expect(world.spawn(Widened(value)).get(Widened)).toBe(value);
   });
 
   it('can create atomic traits', () => {

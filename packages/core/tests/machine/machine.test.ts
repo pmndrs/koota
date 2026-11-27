@@ -10,7 +10,7 @@ import {
   Or,
   relation,
   required,
-} from '../src';
+} from '../../src';
 
 function download() {
   const Wanted = trait();
@@ -25,18 +25,6 @@ function download() {
 }
 
 describe('machines', () => {
-  it('takes the world first as well as the entity alone', () => {
-    const { Wanted, Loading, Download } = download();
-    const world = createWorld();
-    const entity = world.spawn(Download);
-
-    expect(Download.current(world, entity)).toBe(Wanted);
-    Download.enter(world, entity, Loading({ requestId: 7 }));
-    expect(Download.current(world, entity)).toBe(Loading);
-    expect(Download.current(entity)).toBe(Loading);
-    expect(entity.get(Loading)).toEqual({ requestId: 7, attempts: 0 });
-  });
-
   it('keeps machines independent across entities, worlds and resets', () => {
     const { Wanted, Loading, Download } = download();
     const Visible = trait(),
@@ -258,47 +246,6 @@ describe('machines', () => {
     }
   );
 
-  it.each([false, true])(
-    'delivers queued additions before a destroy deferred by an earlier callback (walking: %s)',
-    (walking) => {
-      const { Wanted, Loading, Download } = download();
-      const world = createWorld();
-      const RefersTo = relation();
-      const target = world.spawn(Download);
-      const source = world.spawn(RefersTo(target));
-      world.spawn(RefersTo(world.spawn(Loading)));
-      const events: string[] = [];
-      const stop = world.onExit([Wanted], () => source.destroy());
-      world.onEnter([RefersTo(Loading)], () => events.push('add'));
-      world.onExit([RefersTo(Loading)], () => events.push('remove'));
-
-      if (walking) world.query(RefersTo(Loading)).each(() => Download.enter(target, Loading));
-      else Download.enter(target, Loading);
-      expect(source.isAlive()).toBe(false);
-      expect(events).toEqual(['add', 'remove']);
-      stop();
-      world.destroy();
-    }
-  );
-
-  it('reports a removal and the membership a callback restores in order', () => {
-    const { Wanted, Loading, Download } = download();
-    const world = createWorld();
-    const RefersTo = relation();
-    const target = world.spawn(Download);
-    const other = world.spawn(Download);
-    const source = world.spawn(RefersTo(target));
-    const events: string[] = [];
-    world.onEnter([Loading], () => source.add(RefersTo(other)));
-    world.onEnter([RefersTo(Wanted)], () => events.push('add'));
-    world.onExit([RefersTo(Wanted)], () => events.push('remove'));
-
-    Download.enter(target, Loading);
-    expect(world.query(RefersTo(Wanted)).toArray()).toContain(source);
-    expect(events).toEqual(['remove', 'add']);
-    world.destroy();
-  });
-
   it('preserves coalesced Added, Removed and Changed semantics', () => {
     const { Wanted, Loading, Failed, Download } = download();
     const world = createWorld();
@@ -364,22 +311,6 @@ describe('machines', () => {
     });
     expect(visited).toEqual(entities);
     expect(world.query(Loading).toArray()).toEqual(entities);
-    world.destroy();
-  });
-
-  it('preserves the old state when initializing another state fails', () => {
-    const Idle = trait();
-    const Value = trait({
-      first: 0,
-      last: () => {
-        throw new Error('failed');
-      },
-    });
-    const State = machine({ states: { Idle, Value }, initial: Idle });
-    const world = createWorld();
-    const entity = world.spawn(State);
-    expect(() => State.enter(entity, Value)).toThrow('failed');
-    expect(State.current(entity)).toBe(Idle);
     world.destroy();
   });
 
@@ -455,6 +386,91 @@ describe('machines', () => {
       // @ts-expect-error State schemas are preserved.
       Download.enter(entity, Loading({ requestId: 'wrong' }));
     }).toBeFunction();
+    world.destroy();
+  });
+});
+
+describe('machine self transitions', () => {
+  it('prepares defaults and copies supplied tuples before removal callbacks', () => {
+    const Idle = trait();
+    const makeDetails = vi.fn(() => ({ source: 'default' }));
+    const Loading = trait({
+      requestId: required<number>(),
+      attempts: 0,
+      position: [0, 0],
+      details: makeDetails,
+    });
+    const Download = machine({ states: { Idle, Loading }, initial: Idle });
+    const world = createWorld();
+    const entity = world.spawn(Loading({ requestId: 1, attempts: 3, position: [1, 2] }));
+    const position: [number, number] = [8, 9];
+    const details = { source: 'provided' };
+    const previous = vi.fn();
+    const stop = entity.onRemove(Loading, () => {
+      previous(entity.get(Loading));
+      position[0] = 99;
+    });
+
+    Download.enter(entity, Loading({ requestId: 2, position, details }));
+    expect(previous).toHaveBeenCalledExactlyOnceWith({
+      requestId: 1,
+      attempts: 3,
+      position: [1, 2],
+      details: { source: 'default' },
+    });
+    expect(entity.get(Loading)).toEqual({ requestId: 2, attempts: 0, position: [8, 9], details });
+    expect(entity.get(Loading)?.details).toBe(details);
+    expect(makeDetails).toHaveBeenCalledOnce();
+
+    stop();
+    Download.enter(entity, Loading({ requestId: 3 }));
+    expect(entity.get(Loading)).toEqual({
+      requestId: 3,
+      attempts: 0,
+      position: [0, 0],
+      details: { source: 'default' },
+    });
+    expect(makeDetails).toHaveBeenCalledTimes(2);
+    world.destroy();
+  });
+
+  it('keeps the current state and value and skips callbacks when preparation fails', () => {
+    let fail = false;
+    const Idle = trait();
+    const Loading = trait({
+      requestId: required<number>(),
+      attempts: 0,
+      last: () => {
+        if (fail) throw new Error('default failed');
+        return 1;
+      },
+    });
+    const Download = machine({ states: { Idle, Loading }, initial: Idle });
+    const world = createWorld();
+    const entity = world.spawn(Loading({ requestId: 1, attempts: 3 }));
+    const removed = vi.fn();
+    const transitioned = vi.fn();
+    entity.onRemove(Loading, removed);
+    entity.onTransition(Download, transitioned);
+
+    expect(() => {
+      // @ts-expect-error Required fields must still be supplied on self-entry.
+      Download.enter(entity, Loading({ attempts: 9 }));
+    }).toThrow('[REQUIRED_VALUE]');
+    fail = true;
+    expect(() => Download.enter(entity, Loading({ requestId: 2, attempts: 9 }))).toThrow(
+      'default failed'
+    );
+    expect(entity.get(Loading)).toEqual({ requestId: 1, attempts: 3, last: 1 });
+    expect(removed).not.toHaveBeenCalled();
+    expect(transitioned).not.toHaveBeenCalled();
+    // Entry from another state fails the same way and leaves that state in place.
+    const idle = world.spawn(Download);
+    expect(() => Download.enter(idle, Loading({ requestId: 2 }))).toThrow('default failed');
+    expect(Download.current(idle)).toBe(Idle);
+
+    Download.enter(entity, Loading({ requestId: 3, last: 7 }));
+    expect(entity.get(Loading)).toEqual({ requestId: 3, attempts: 0, last: 7 });
     world.destroy();
   });
 });

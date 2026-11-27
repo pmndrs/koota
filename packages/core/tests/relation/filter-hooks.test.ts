@@ -7,7 +7,7 @@ import {
   relation,
   trait,
   type Entity,
-} from '../src';
+} from '../../src';
 
 describe('relation filter events', () => {
   const Active = trait();

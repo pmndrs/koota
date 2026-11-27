@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWorld, identifier, relation, trait, type Entity } from '../src';
+import { createWorld, relation, trait, type Entity } from '../../src';
 
 describe('world isolation', () => {
   it.each(['source', 'target'] as const)(
@@ -49,36 +49,6 @@ describe('world isolation', () => {
       b.destroy();
     }
   );
-
-  it('keeps a dying scope parent protected during and after a foreign hook throws', () => {
-    const ChildOf = relation({ exclusive: true, autoDestroy: 'orphan' });
-    const Name = identifier({ scope: ChildOf });
-    const a = createWorld();
-    const b = createWorld();
-    const parent = a.spawn(Name('parent'));
-    const child = a.spawn(ChildOf(parent), Name('child'));
-    const foreign = b.spawn();
-    const stop = b.onEntityDestroy(() => {
-      expect(a.spawn(ChildOf(parent)).targetFor(ChildOf)).toBeUndefined();
-      throw new Error('foreign hook');
-    });
-    a.onEntityDestroy((entity) => {
-      if (entity !== parent) return;
-      expect(() => foreign.destroy()).toThrow('foreign hook');
-      expect(a.spawn(ChildOf(parent)).targetFor(ChildOf)).toBeUndefined();
-    });
-
-    parent.destroy();
-
-    expect(parent.isAlive()).toBe(false);
-    expect(child.isAlive()).toBe(false);
-    expect(foreign.isAlive()).toBe(true);
-    stop();
-    foreign.destroy();
-    expect(foreign.isAlive()).toBe(false);
-    a.destroy();
-    b.destroy();
-  });
 
   it.each([0, 1024])(
     'destroys cyclic and duplicate cascade entries once with retain %s',

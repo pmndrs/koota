@@ -1,17 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  $internal,
-  createAdded,
   createChanged,
   createQuery,
   createWorld,
-  identifier,
   Not,
   Or,
   relation,
   required,
   trait,
-} from '../src';
+  type Entity,
+} from '../../src';
 
 describe('Relation', () => {
   // Disable destroyed-entity retention so ids can be reused on the next spawn.
@@ -19,11 +17,6 @@ describe('Relation', () => {
 
   beforeEach(() => {
     world.reset();
-  });
-
-  it('should create a relation', () => {
-    const Relation = relation();
-    expect(Object.keys(Relation)).toEqual([]);
   });
 
   it('should create a unique relations per target by default', () => {
@@ -306,48 +299,6 @@ describe('Relation', () => {
     expect(world.queryFirst(ChildOf(newParent))).toBe(child);
   });
 
-  it('should correctly remove targets when they are destroyed', () => {
-    const Likes = relation();
-
-    const person = world.spawn();
-    const apple = world.spawn();
-    const banana = world.spawn();
-    const cherry = world.spawn();
-    const durian = world.spawn();
-
-    // Add multiple relations with different targets
-    person.add(Likes(apple));
-    person.add(Likes(banana));
-    person.add(Likes(cherry));
-    person.add(Likes(durian));
-
-    // Check that targetsFor returns all targets
-    const initialTargets = person.targetsFor(Likes);
-    expect(initialTargets.length).toBe(4);
-    expect(initialTargets).toContain(apple);
-    expect(initialTargets).toContain(banana);
-    expect(initialTargets).toContain(cherry);
-    expect(initialTargets).toContain(durian);
-
-    // Destroy some of the targets
-    banana.destroy();
-    durian.destroy();
-
-    // Check that targetsFor no longer includes the destroyed targets
-    const remainingTargets = person.targetsFor(Likes);
-    expect(remainingTargets.length).toBe(2);
-    expect(remainingTargets).toContain(apple);
-    expect(remainingTargets).toContain(cherry);
-    expect(remainingTargets).not.toContain(banana);
-    expect(remainingTargets).not.toContain(durian);
-
-    // Verify that the destroyed entities are actually gone
-    expect(world.has(banana)).toBe(false);
-    expect(world.has(durian)).toBe(false);
-    expect(world.has(apple)).toBe(true);
-    expect(world.has(cherry)).toBe(true);
-  });
-
   it('should keep target queries working after a target is destroyed', () => {
     const ChildOf = relation();
     const Mesh = trait();
@@ -412,29 +363,6 @@ describe('Relation', () => {
 
     expect(world.query(kept)).toHaveLength(0);
     expect(world.query(wildcard)).toHaveLength(0);
-  });
-
-  it('should update exclusive relation queries when switching targets', () => {
-    const Parent = relation({ exclusive: true });
-
-    const parentA = world.spawn();
-    const parentB = world.spawn();
-    const child = world.spawn(Parent(parentA));
-
-    expect(world.query(Parent(parentA))).toHaveLength(1);
-    expect(world.query(Parent(parentA))).toContain(child);
-    expect(world.query(Parent(parentB))).toHaveLength(0);
-
-    child.add(Parent(parentB));
-
-    expect(world.query(Parent(parentA))).toHaveLength(0);
-    expect(world.query(Parent(parentB))).toHaveLength(1);
-    expect(world.query(Parent(parentB))).toContain(child);
-
-    child.remove(Parent(parentB));
-
-    expect(world.query(Parent(parentA))).toHaveLength(0);
-    expect(world.query(Parent(parentB))).toHaveLength(0);
   });
 
   it('removes the relation trait when its last target is destroyed', () => {
@@ -688,30 +616,6 @@ describe('Relation', () => {
     expect(world.query(Unit, Not(ChildOf(player))).toArray()).toEqual([child]);
   });
 
-  it('queries naming a destroyed target are dropped and rebuilt on demand', () => {
-    const ChildOf = relation();
-    const Added = createAdded();
-    const Unit = trait();
-    const unit = world.spawn(Unit);
-    const Name = identifier();
-    const cached = world[$internal].queriesHashMap.size;
-    let team = world.spawn();
-
-    for (let i = 0; i < 3; i++) {
-      team = world.spawn();
-      world.query(Unit, Not(ChildOf(team)));
-      world.query(Unit, Or(ChildOf(team), Unit));
-      world.query(Added(ChildOf(team)));
-      world.query(Name(String(i)), ChildOf(team));
-      team.destroy();
-      // The world retains nothing, so the queries go with their target.
-      expect(world[$internal].queriesHashMap.size).toBe(cached);
-      expect(world[$internal].inlineQueries.next!.get(Name)!.next!.size).toBe(0);
-    }
-
-    expect(world.query(Unit, Not(ChildOf(team))).toArray()).toEqual([unit]);
-  });
-
   it('Not accepts a pair with a target query', () => {
     const ChildOf = relation();
     const Unit = trait();
@@ -758,42 +662,6 @@ describe('Relation', () => {
     expect(world.query(Or(ChildOf(red), IsBoss)).toArray()).toEqual([ofRed, ofBlue, ofGreen]);
   });
 
-  it('should emit add/remove events for each pair', () => {
-    const Likes = relation();
-
-    const subject = world.spawn();
-    const targetA = world.spawn();
-    const targetB = world.spawn();
-
-    const adds: Array<{ entity: number; target?: number }> = [];
-    const removes: Array<{ entity: number; target?: number }> = [];
-
-    const unsubAdd = world.onAdd(Likes, (e, t) => adds.push({ entity: e, target: t }));
-    const unsubRemove = world.onRemove(Likes, (e, t) => removes.push({ entity: e, target: t }));
-
-    // First add: fires add event for pair (subject, a)
-    subject.add(Likes(targetA));
-    expect(adds).toEqual([{ entity: subject, target: targetA }]);
-    expect(removes).toEqual([]);
-
-    // Second add: fires add event for pair (subject, b)
-    subject.add(Likes(targetB));
-    expect(adds).toEqual([
-      { entity: subject, target: targetA },
-      { entity: subject, target: targetB },
-    ]);
-    const byId = (a: number, b: number) => a - b;
-    expect(subject.targetsFor(Likes).sort(byId)).toEqual([targetA, targetB].sort(byId));
-
-    // Remove one target: fires remove event for pair (subject, a)
-    subject.remove(Likes(targetA));
-    expect(removes).toEqual([{ entity: subject, target: targetA }]);
-    expect(subject.targetsFor(Likes)).toEqual([targetB]);
-
-    unsubAdd();
-    unsubRemove();
-  });
-
   it('should emit add/remove events when switching an exclusive relation target', () => {
     const Parent = relation({ exclusive: true });
 
@@ -824,73 +692,52 @@ describe('Relation', () => {
     unsubRemove();
   });
 
-  it('onAdd should accept relation pairs and filter by target', () => {
-    const ChildOf = relation();
-    const parentA = world.spawn();
-    const parentB = world.spawn();
-    const childA = world.spawn();
-    const childB = world.spawn();
+  it.each(['onAdd', 'onRemove', 'onChange'] as const)(
+    '%s should accept relation pairs and filter by target',
+    (hook) => {
+      const ChildOf = relation({ store: { order: 0 } });
+      const parentA = world.spawn();
+      const parentB = world.spawn();
+      const childA = world.spawn();
+      const childB = world.spawn();
+      // Removals and changes report on pairs that exist before the hooks subscribe.
+      if (hook !== 'onAdd') {
+        childA.add(ChildOf(parentA));
+        childB.add(ChildOf(parentB));
+      }
 
-    const onTrait = vi.fn();
-    const onWildcard = vi.fn();
-    const onParentA = vi.fn();
+      const onTrait = vi.fn();
+      const onWildcard = vi.fn();
+      const onParentA = vi.fn();
 
-    const unsubTrait = world.onAdd(ChildOf, onTrait);
-    const unsubWildcard = world.onAdd(ChildOf('*'), onWildcard);
-    const unsubParentA = world.onAdd(ChildOf(parentA), onParentA);
+      const unsubTrait = world[hook](ChildOf, onTrait);
+      const unsubWildcard = world[hook](ChildOf('*'), onWildcard);
+      const unsubParentA = world[hook](ChildOf(parentA), onParentA);
 
-    childA.add(ChildOf(parentA));
-    childB.add(ChildOf(parentB));
+      const trigger = {
+        onAdd: (child: Entity, parent: Entity) => child.add(ChildOf(parent)),
+        onRemove: (child: Entity, parent: Entity) => child.remove(ChildOf(parent)),
+        onChange: (child: Entity, parent: Entity) => child.set(ChildOf(parent), { order: 1 }),
+      }[hook];
+      trigger(childA, parentA);
+      trigger(childB, parentB);
 
-    expect(onTrait).toHaveBeenCalledTimes(2);
-    expect(onTrait).toHaveBeenNthCalledWith(1, childA, parentA);
-    expect(onTrait).toHaveBeenNthCalledWith(2, childB, parentB);
+      expect(onTrait).toHaveBeenCalledTimes(2);
+      expect(onTrait).toHaveBeenNthCalledWith(1, childA, parentA);
+      expect(onTrait).toHaveBeenNthCalledWith(2, childB, parentB);
 
-    expect(onWildcard).toHaveBeenCalledTimes(2);
-    expect(onWildcard).toHaveBeenNthCalledWith(1, childA, parentA);
-    expect(onWildcard).toHaveBeenNthCalledWith(2, childB, parentB);
+      expect(onWildcard).toHaveBeenCalledTimes(2);
+      expect(onWildcard).toHaveBeenNthCalledWith(1, childA, parentA);
+      expect(onWildcard).toHaveBeenNthCalledWith(2, childB, parentB);
 
-    expect(onParentA).toHaveBeenCalledTimes(1);
-    expect(onParentA).toHaveBeenCalledWith(childA, parentA);
+      expect(onParentA).toHaveBeenCalledTimes(1);
+      expect(onParentA).toHaveBeenCalledWith(childA, parentA);
 
-    unsubTrait();
-    unsubWildcard();
-    unsubParentA();
-  });
-
-  it('onRemove should accept relation pairs and filter by target', () => {
-    const ChildOf = relation();
-    const parentA = world.spawn();
-    const parentB = world.spawn();
-    const childA = world.spawn(ChildOf(parentA));
-    const childB = world.spawn(ChildOf(parentB));
-
-    const onTrait = vi.fn();
-    const onWildcard = vi.fn();
-    const onParentA = vi.fn();
-
-    const unsubTrait = world.onRemove(ChildOf, onTrait);
-    const unsubWildcard = world.onRemove(ChildOf('*'), onWildcard);
-    const unsubParentA = world.onRemove(ChildOf(parentA), onParentA);
-
-    childA.remove(ChildOf(parentA));
-    childB.remove(ChildOf(parentB));
-
-    expect(onTrait).toHaveBeenCalledTimes(2);
-    expect(onTrait).toHaveBeenNthCalledWith(1, childA, parentA);
-    expect(onTrait).toHaveBeenNthCalledWith(2, childB, parentB);
-
-    expect(onWildcard).toHaveBeenCalledTimes(2);
-    expect(onWildcard).toHaveBeenNthCalledWith(1, childA, parentA);
-    expect(onWildcard).toHaveBeenNthCalledWith(2, childB, parentB);
-
-    expect(onParentA).toHaveBeenCalledTimes(1);
-    expect(onParentA).toHaveBeenCalledWith(childA, parentA);
-
-    unsubTrait();
-    unsubWildcard();
-    unsubParentA();
-  });
+      unsubTrait();
+      unsubWildcard();
+      unsubParentA();
+    }
+  );
 
   it('onRemove callback should still have access to the relation target and its data', () => {
     const Contains = relation({ store: { amount: 0 } });
@@ -913,40 +760,6 @@ describe('Relation', () => {
     inventory.remove(Contains(gold));
 
     expect(removeCb).toHaveBeenCalledTimes(1);
-  });
-
-  it('onChange should accept relation pairs and filter by target', () => {
-    const ChildOf = relation({ store: { order: 0 } });
-    const parentA = world.spawn();
-    const parentB = world.spawn();
-    const childA = world.spawn(ChildOf(parentA));
-    const childB = world.spawn(ChildOf(parentB));
-
-    const onTrait = vi.fn();
-    const onWildcard = vi.fn();
-    const onParentA = vi.fn();
-
-    const unsubTrait = world.onChange(ChildOf, onTrait);
-    const unsubWildcard = world.onChange(ChildOf('*'), onWildcard);
-    const unsubParentA = world.onChange(ChildOf(parentA), onParentA);
-
-    childA.set(ChildOf(parentA), { order: 1 });
-    childB.set(ChildOf(parentB), { order: 2 });
-
-    expect(onTrait).toHaveBeenCalledTimes(2);
-    expect(onTrait).toHaveBeenNthCalledWith(1, childA, parentA);
-    expect(onTrait).toHaveBeenNthCalledWith(2, childB, parentB);
-
-    expect(onWildcard).toHaveBeenCalledTimes(2);
-    expect(onWildcard).toHaveBeenNthCalledWith(1, childA, parentA);
-    expect(onWildcard).toHaveBeenNthCalledWith(2, childB, parentB);
-
-    expect(onParentA).toHaveBeenCalledTimes(1);
-    expect(onParentA).toHaveBeenCalledWith(childA, parentA);
-
-    unsubTrait();
-    unsubWildcard();
-    unsubParentA();
   });
 
   it.each([false, true])(

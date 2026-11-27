@@ -9,8 +9,7 @@ import {
   relation,
   trait,
   type Entity,
-  type Relation,
-} from '../src';
+} from '../../src';
 
 describe('relation targets in each', () => {
   it('passes exclusive wildcard and query targets in parameter order', () => {
@@ -134,47 +133,28 @@ describe('relation targets in each', () => {
         expect([position.x, current, index]).toEqual([1, entity, 0]);
       });
     });
-    world
-      .query(Contains('*'), Name, Parent('*'), Position)
-      .each((contents, name, parent, position, current) => {
-        expect([contents, name.value, parent, position.x, current]).toEqual([
-          [target],
-          'layer',
-          target,
-          1,
-          entity,
-        ]);
-      });
+    // A cached query with the same terms in another order projects in its own order.
+    const reverse = createQuery(Contains('*'), Name, Parent('*'), Position);
+    expect(createQuery(Contains('*'), Name, Parent('*'), Position)).toBe(reverse);
+    expect(createQuery(Position, Parent(target))).toBe(createQuery(Position, Parent(target)));
+    world.query(reverse).each((contents, name, parent, position, current) => {
+      expect([contents, name.value, parent, position.x, current]).toEqual([
+        [target],
+        'layer',
+        target,
+        1,
+        entity,
+      ]);
+    });
     query.each((_position, parent, _name, contents) => {
       expect([parent, contents]).toEqual([target, [target]]);
     });
-    world.destroy();
-  });
-
-  it('preserves projection order in cached query references', () => {
-    const world = createWorld();
-    const Position = trait({ x: 1 });
-    const Name = trait({ value: 'child' });
-    const Parent = relation({ exclusive: true });
-    const parent = world.spawn();
-    const child = world.spawn(Position, Name, Parent(parent));
-    const forward = createQuery(Position, Parent('*'));
-    const reverse = createQuery(Parent('*'), Position);
-    expect(createQuery(Position, Parent('*'))).toBe(forward);
-    expect(createQuery(Position, Parent(parent))).toBe(createQuery(Position, Parent(parent)));
-    world.query(forward).each((position, target, entity) => {
-      expect([position.x, target, entity]).toEqual([1, parent, child]);
+    // Or branches project in the order they are written.
+    world.query(createQuery(Or(Position, Name), Parent('*'))).each((position, name, parent) => {
+      expect([position.x, name.value, parent]).toEqual([1, 'layer', target]);
     });
-    world.query(reverse).each((target, position, entity) => {
-      expect([target, position.x, entity]).toEqual([parent, 1, child]);
-    });
-    const either = createQuery(Or(Position, Name), Parent('*'));
-    const reversedEither = createQuery(Or(Name, Position), Parent('*'));
-    world.query(either).each((position, name, target) => {
-      expect([position.x, name.value, target]).toEqual([1, 'child', parent]);
-    });
-    world.query(reversedEither).each((name, position, target) => {
-      expect([name.value, position.x, target]).toEqual(['child', 1, parent]);
+    world.query(createQuery(Or(Name, Position), Parent('*'))).each((name, position, parent) => {
+      expect([name.value, position.x, parent]).toEqual(['layer', 1, target]);
     });
     world.destroy();
   });
@@ -212,20 +192,6 @@ describe('relation targets in each', () => {
     world.query(query).each((active) => seen.push(active.slice()));
     expect(seen).toEqual([[other]]);
     expect(entity.targetsFor(Contains)).toEqual([target, idle, other]);
-    world.destroy();
-  });
-
-  it('keeps page stores trait only', () => {
-    const world = createWorld();
-    const Position = trait({ x: 1 });
-    const Parent = relation({ exclusive: true });
-    const target = world.spawn();
-    world.spawn(Position, Parent(target));
-    const query = world.query(Parent('*'), Position);
-    query.each((parent, position) => {
-      expect([parent, position.x]).toEqual([target, 1]);
-    });
-    expect(query.getPages()[0].stores).toHaveLength(1);
     world.destroy();
   });
 
@@ -280,32 +246,6 @@ describe('relation targets in each', () => {
       }
     }
     for (const world of worlds) world.destroy();
-  });
-
-  it('keeps widened policy and target types honest about callback arguments', () => {
-    const world = createWorld();
-    const Parent = relation({ exclusive: true });
-    const fromDefinition = (definition?: { exclusive: boolean }) => relation(definition);
-    const dynamic = fromDefinition({ exclusive: true });
-    const Dynamic: Relation = dynamic;
-    const Tag = trait();
-    const parent = world.spawn(Tag);
-    const child = world.spawn(Parent(parent), dynamic(parent));
-    world.query(Dynamic('*')).each((target, entity) => {
-      expectTypeOf(target).toEqualTypeOf<Entity | readonly Entity[]>();
-      expect([target, entity]).toEqual([parent, child]);
-    });
-    for (const target of [parent, '*' as const]) {
-      world.query(Parent(target)).each((...args) => {
-        expectTypeOf(args).toEqualTypeOf<[Entity, number] | [Entity, Entity, number]>();
-        expect(args).toEqual(target === '*' ? [parent, child, 0] : [child, 0]);
-      });
-    }
-    world.query(Dynamic(Tag)).each((...args) => {
-      expectTypeOf(args).toEqualTypeOf<[Entity | readonly Entity[], Entity, number]>();
-      expect(args).toEqual([parent, child, 0]);
-    });
-    world.destroy();
   });
 
   it('preserves rows and their targets until the walk ends', () => {

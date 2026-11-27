@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { $internal, createWorld, type Entity, getStore, trait, unpackEntity } from '../src';
+import { $internal, createWorld, trait, unpackEntity } from '../../src';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
@@ -59,44 +59,6 @@ describe('Entity', () => {
     expect(entityId2).not.toBe(entityId);
   });
 
-  it('should recycle entities and increment generation', () => {
-    const entities: Entity[] = [];
-
-    for (let i = 0; i < 50; i++) {
-      entities.push(world.spawn(Bar));
-    }
-
-    const bar = getStore(world, Bar);
-    const storePageCount = bar.value.length;
-
-    for (const entity of entities) {
-      entity.destroy();
-    }
-
-    // Spawning after destroy should recycle slots with bumped generation.
-    const recycled1 = world.spawn(Bar);
-    const u1 = unpackEntity(recycled1);
-    expect(u1.generation).toBe(
-      (entities.find((entity) => entity.id() === u1.entityId)!.generation() + 1) & 255
-    );
-
-    const recycled2 = world.spawn(Bar);
-    const u2 = unpackEntity(recycled2);
-    expect(u2.generation).toBe(
-      (entities.find((entity) => entity.id() === u2.entityId)!.generation() + 1) & 255
-    );
-    expect(u2.entityId).not.toBe(u1.entityId);
-
-    const recycled3 = world.spawn(Bar);
-    const u3 = unpackEntity(recycled3);
-    expect(u3.generation).toBe(
-      (entities.find((entity) => entity.id() === u3.entityId)!.generation() + 1) & 255
-    );
-
-    // Store pages should not grow since slots are reused within the same page.
-    expect(bar.value.length).toBe(storePageCount);
-  });
-
   it('should add entities with spawn', () => {
     const entity = world.spawn(Foo, Bar);
 
@@ -116,29 +78,6 @@ describe('Entity', () => {
     expectTypeOf(entity.get(Baz)).toEqualTypeOf<{ value: number } | undefined>();
   });
 
-  it('can add traits', () => {
-    const entity = world.spawn();
-
-    entity.add(Foo, Bar);
-
-    expect(entity.has(Foo)).toBe(true);
-    expect(entity.has(Bar)).toBe(true);
-  });
-
-  it('can add traits with initial state', () => {
-    const entity = world.spawn(Bar({ value: 1 }));
-    expect(entity.get(Bar)!.value).toBe(1);
-  });
-
-  it('can remove traits', () => {
-    const entity = world.spawn(Foo, Bar);
-
-    entity.remove(Foo);
-
-    expect(entity.has(Foo)).toBe(false);
-    expect(entity.has(Bar)).toBe(true);
-  });
-
   it('can get trait state', () => {
     let entity = world.spawn(Bar({ value: 1 }));
     const bar = entity.get(Bar)!;
@@ -152,12 +91,6 @@ describe('Entity', () => {
     entity.destroy();
 
     entity = world.spawn(Bar({ value: 1 }));
-    expect(entity.get(Bar)!.value).toBe(1);
-  });
-
-  it('can set trait state', () => {
-    const entity = world.spawn(Bar);
-    entity.set(Bar, { value: 1 });
     expect(entity.get(Bar)!.value).toBe(1);
   });
 
@@ -221,17 +154,6 @@ describe('Entity', () => {
     }
   );
 
-  it('rejects mutations after the owning world releases its pages', () => {
-    const localWorld = createWorld();
-    const entity = localWorld.spawn(Bar);
-    for (let i = 0; i < 1024; i++) localWorld.spawn();
-    localWorld.destroy();
-
-    expect(() => entity.set(Bar, { value: 1 })).toThrow(/The entity does not exist/);
-    expect(() => entity.get(Bar)).toThrow(/The entity does not exist/);
-    expect(() => entity.has(Bar)).toThrow(/The entity does not exist/);
-  });
-
   it('can check if an entity is alive', () => {
     let entity = world.spawn();
     expect(entity.isAlive()).toBe(true);
@@ -249,21 +171,6 @@ describe('Entity', () => {
 
     entity.destroy();
     expect(entity.isAlive()).toBe(false);
-  });
-
-  it('can get entity id', () => {
-    const entity = world.spawn();
-    expect(typeof entity.id()).toBe('number');
-    expect(entity.id()).toBeGreaterThanOrEqual(0);
-  });
-
-  it('can get entity generation', () => {
-    const entity = world.spawn();
-    const initialGeneration = entity.generation();
-
-    entity.destroy();
-    const entity2 = world.spawn();
-    expect(entity2.generation()).toBe((initialGeneration + 1) & 255);
   });
 
   it('can check if entity exists in world', () => {

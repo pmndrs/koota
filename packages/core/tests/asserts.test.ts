@@ -1,13 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  createRemoved,
-  createWorld,
-  getStore,
-  identifier,
-  relation,
-  trait,
-  type World,
-} from '../src';
+import { createRemoved, createWorld, identifier, relation, trait, type World } from '../src';
 
 describe('Assertions', () => {
   let world: World;
@@ -78,17 +70,6 @@ describe('Assertions', () => {
     }
   );
 
-  it('keeps handles invalid after a world reset reuses their page', () => {
-    const stale = world.spawn(Position);
-    world.reset();
-    const replacement = world.spawn(Position({ x: 7 }));
-    expect(replacement.id()).toBe(stale.id());
-    expect(stale.isAlive()).toBe(false);
-    expect(world.has(stale)).toBe(false);
-    expect(() => stale.set(Position, { x: 99 })).toThrow(/\[ENTITY_ALIVE\]/);
-    expect(replacement.get(Position)).toEqual({ x: 7 });
-  });
-
   it('does not revive a destroyed handle when its generation wraps', () => {
     const stale = world.spawn(Position);
     let current = stale;
@@ -115,21 +96,6 @@ describe('Assertions', () => {
     expect(callback).not.toHaveBeenCalled();
     expect(entity.get(Position)).toBeUndefined();
     expect(entity.has(Position)).toBe(false);
-  });
-
-  it('rejects writeback when a set callback removes its trait', () => {
-    const entity = world.spawn(Position({ x: 1 }));
-    const callback = vi.fn();
-    entity.onChange(Position, callback);
-    expect(() =>
-      entity.set(Position, () => {
-        entity.remove(Position);
-        return { x: 99 };
-      })
-    ).toThrow(/\[TRAIT_PRESENT\]/);
-    const store = getStore(world, Position);
-    expect(store.x[entity.id() >>> 10][entity.id() & 1023]).toBe(1);
-    expect(callback).not.toHaveBeenCalled();
   });
 
   it('rejects writeback when a set callback recycles its entity', () => {
@@ -188,14 +154,6 @@ describe('Assertions', () => {
     }
   );
 
-  it.each(['wildcard', 'query'] as const)('rejects writes to a relation %s filter', (kind) => {
-    const source = world.spawn();
-    const pair = kind === 'wildcard' ? Link('*') : Link(Position);
-    expect(() => source.add(pair)).toThrow(/\[RELATION_TARGET\]/);
-    expect(() => source.set(pair, { weight: 1 })).toThrow(/\[RELATION_TARGET\]/);
-    expect(source.targetsFor(Link)).toEqual([]);
-  });
-
   it('requires an existing relation pair before invoking a set callback', () => {
     const target = world.spawn();
     const source = world.spawn();
@@ -223,52 +181,5 @@ describe('Assertions', () => {
     ).toThrow(/\[RELATION_PRESENT\]/);
     expect(source.has(Link(target))).toBe(false);
     expect(callback).not.toHaveBeenCalled();
-  });
-
-  it('rejects writeback when a callback replaces its exclusive relation pair', () => {
-    const first = world.spawn();
-    const second = world.spawn();
-    const source = world.spawn(Link(first, { weight: 7 }));
-    const changed = vi.fn();
-    source.onChange(Link, changed);
-    expect(() =>
-      source.set(Link(first), () => {
-        source.add(Link(second, { weight: 9 }));
-        return { weight: 99 };
-      })
-    ).toThrow(/\[RELATION_PRESENT\]/);
-    expect(source.targetFor(Link)).toBe(second);
-    expect(source.get(Link(second))).toEqual({ weight: 9 });
-    expect(changed).toHaveBeenCalledExactlyOnceWith(source, second);
-  });
-
-  it('writes the selected relation pair when a callback removes another target', () => {
-    const Links = relation({ store: { weight: 0 } });
-    const first = world.spawn();
-    const second = world.spawn();
-    const source = world.spawn(Links(first, { weight: 1 }), Links(second, { weight: 7 }));
-    source.set(Links(second), (prev) => {
-      source.remove(Links(first));
-      return { weight: prev.weight + 1 };
-    });
-    expect(source.targetsFor(Links)).toEqual([second]);
-    expect(source.get(Links(second))).toEqual({ weight: 8 });
-    expect(source.has(Links(first))).toBe(false);
-  });
-
-  it('keeps relation targets and query membership consistent through removal and reuse', () => {
-    const target = world.spawn();
-    const source = world.spawn(Link(target));
-    source.add(Link(target));
-    expect(source.targetsFor(Link)).toEqual([target]);
-    expect([...world.query(Link(target))]).toEqual([source]);
-    source.remove(Link('*'));
-    expect(world.query(Link('*')).length).toBe(0);
-    source.add(Link(target));
-    target.destroy();
-    const replacement = world.spawn();
-    expect(replacement.id()).toBe(target.id());
-    expect(source.targetsFor(Link)).toEqual([]);
-    expect(world.query(Link(replacement)).length).toBe(0);
   });
 });

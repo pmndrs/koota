@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { createWorld, trait, type Entity } from '../src';
+import { createWorld, trait, type Entity, type QueryView } from '../../src';
 
 describe('Sorted query views', () => {
   const world = createWorld();
   const Position = trait({ x: 0 });
   const ascending = (a: Entity, b: Entity) => a.get(Position)!.x - b.get(Position)!.x;
+  // Orders a Position query by x through a comparator or a key selector.
+  const orderByX = (query: QueryView<[typeof Position]>, method: 'sort' | 'sortBy') =>
+    method === 'sort'
+      ? query.sort(ascending, [Position])
+      : query.sortBy(Position, (position) => position.x);
   beforeEach(() => world.reset());
 
   it('shares the cached read-only entity array across sorted selections', () => {
@@ -36,24 +41,27 @@ describe('Sorted query views', () => {
     expect(sorted.entities).toEqual([c, a]);
   });
 
-  it('defers a removal made while the base query is walked until the walk ends', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
-    const c = world.spawn(Position({ x: 0 }));
-    const query = world.query(Position);
-    const sorted = query.sort(ascending, [Position]);
-    expect(sorted.entities).toEqual([c, b, a]);
-
-    query.forEach((entity) => {
-      if (entity !== a) return;
-      b.remove(Position);
+  it.each(['sort', 'sortBy'] as const)(
+    'defers a removal made while the base query is walked until the walk ends (%s)',
+    (method) => {
+      const a = world.spawn(Position({ x: 2 }));
+      const b = world.spawn(Position({ x: 1 }));
+      const c = world.spawn(Position({ x: 0 }));
+      const query = world.query(Position);
+      const sorted = orderByX(query, method);
       expect(sorted.entities).toEqual([c, b, a]);
-    });
 
-    expect(sorted.entities).toEqual([c, a]);
-    b.add(Position({ x: 3 }));
-    expect(sorted.entities).toEqual([c, a, b]);
-  });
+      query.forEach((entity) => {
+        if (entity !== a) return;
+        b.remove(Position);
+        expect(sorted.entities).toEqual([c, b, a]);
+      });
+
+      expect(sorted.entities).toEqual([c, a]);
+      b.add(Position({ x: 3 }));
+      expect(sorted.entities).toEqual([c, a, b]);
+    }
+  );
 
   it('writes selections in sorted order and shares manual invalidation', () => {
     const Rank = trait({ value: 0 });
@@ -76,60 +84,64 @@ describe('Sorted query views', () => {
     expect(sorted.entities).toEqual([a, b]);
   });
 
-  it.each(['each', 'forEach'] as const)(
-    'defers sorting until re-entry after active walks finish (%s)',
-    (mode) => {
-      const a = world.spawn(Position({ x: 2 }));
-      const b = world.spawn(Position({ x: 1 }));
-      const c = world.spawn();
-      const sorted = world.query(Position).sort(ascending, [Position]);
-      const selected = sorted.select();
-      const entities = sorted.entities;
-      const visited: Entity[] = [];
-      const visit = (entity: Entity) => {
-        visited.push(entity);
-        if (visited.length !== 1) return;
-        a.set(Position, { x: 0 });
-        c.add(Position({ x: 3 }));
-        sorted.invalidate();
-
-        expect(selected.entities).toBe(entities);
-        expect([...selected]).toEqual([b, a]);
-        expect(sorted.entities).toBe(entities);
-      };
-
-      switch (mode) {
-        case 'each':
-          sorted.each((_position, entity) => visit(entity));
-          break;
-        case 'forEach':
-          sorted.forEach(visit);
-          break;
-      }
-
-      expect(visited).toEqual([b, a]);
-      expect(sorted.toArray()).toEqual([a, b, c]);
-    }
-  );
-
-  it('refreshes inside for...of while the loop keeps its starting sequence', () => {
+  it.each([
+    ['sort', 'each'],
+    ['sort', 'forEach'],
+    ['sortBy', 'each'],
+  ] as const)('defers sorting until re-entry after active walks finish (%s, %s)', (method, mode) => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
     const c = world.spawn();
-    const sorted = world.query(Position).sort(ascending, [Position]);
+    const sorted = orderByX(world.query(Position), method);
+    const selected = sorted.select();
+    const entities = sorted.entities;
     const visited: Entity[] = [];
-
-    for (const entity of sorted) {
+    const visit = (entity: Entity) => {
       visited.push(entity);
-      if (visited.length !== 1) continue;
+      if (visited.length !== 1) return;
       a.set(Position, { x: 0 });
       c.add(Position({ x: 3 }));
-      expect(sorted.entities).toEqual([a, b, c]);
+      sorted.invalidate();
+
+      expect(selected.entities).toBe(entities);
+      expect([...selected]).toEqual([b, a]);
+      expect(sorted.entities).toBe(entities);
+    };
+
+    switch (mode) {
+      case 'each':
+        sorted.each((_position, entity) => visit(entity));
+        break;
+      case 'forEach':
+        sorted.forEach(visit);
+        break;
     }
 
     expect(visited).toEqual([b, a]);
-    expect([...sorted]).toEqual([a, b, c]);
+    expect(sorted.toArray()).toEqual([a, b, c]);
   });
+
+  it.each(['sort', 'sortBy'] as const)(
+    'refreshes inside for...of while the loop keeps its starting sequence (%s)',
+    (method) => {
+      const a = world.spawn(Position({ x: 2 }));
+      const b = world.spawn(Position({ x: 1 }));
+      const c = world.spawn();
+      const sorted = orderByX(world.query(Position), method);
+      const visited: Entity[] = [];
+
+      for (const entity of sorted) {
+        visited.push(entity);
+        if (visited.length !== 1) continue;
+        a.set(Position, { x: 0 });
+        c.add(Position({ x: 3 }));
+        expect(sorted.entities).toEqual([a, b, c]);
+      }
+
+      expect(visited).toEqual([b, a]);
+      expect([...sorted]).toEqual([a, b, c]);
+    }
+  );
 
   it('tracks every dependency and reuses views for equivalent arrays', () => {
     const Rank = trait({ value: 0 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createActions, identifier, machine, relation, trait, type Entity } from '../src';
-import { createWorld } from '../src/isolated';
-import { hasNativeGc, waitForFinalization } from './utils/gc';
+import { createActions, identifier, machine, relation, trait, type Entity } from '../../src';
+import { createWorld } from '../../src/isolated';
+import { hasNativeGc, waitForFinalization } from '../utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
 const IsActive = trait();
@@ -69,25 +69,19 @@ describe('World-first entities', () => {
     expect(world.query(Position).length).toBe(1);
   });
 
-  it('treats a missing entity as a dead entity, never as the world', () => {
+  it('never reads a missing entity as the world or a missing trait as a liveness check', () => {
     const world = createWorld();
     const entity = world.spawn(Position);
     const missing = undefined as unknown as Entity;
+    const missingTrait = undefined as unknown as typeof Position;
 
+    // A missing entity is a dead entity.
     expect(() => world.destroy(missing)).toThrow(/ENTITY_ALIVE/);
     expect(() => world.add(missing, IsActive)).toThrow(/ENTITY_ALIVE/);
     expect(() => world.get(missing, Position)).toThrow(/ENTITY_ALIVE/);
     expect(world.has(entity)).toBe(true);
     expect(world.has(IsActive)).toBe(false);
-  });
-
-  it('never reads a missing trait as a liveness check', () => {
-    const world = createWorld();
-    const entity = world.spawn(Position);
-    const missing = undefined as unknown as typeof Position;
-
-    expect(world.has(entity)).toBe(true);
-    expect(() => world.has(entity, missing)).toThrow();
+    expect(() => world.has(entity, missingTrait)).toThrow();
   });
 
   it('reads relation targets and identifiers through the world', () => {

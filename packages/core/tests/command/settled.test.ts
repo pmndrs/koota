@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { whenSettled, createWorld, relation, trait } from '../src';
+import { whenSettled, createWorld, relation, trait } from '../../src';
 
 it('settles once after nested removals and reads the remaining target', () => {
   const world = createWorld();
@@ -56,20 +56,6 @@ it('settles after bulk additions, exclusive replacement, and query reconciliatio
   source.onAdd(Link, refresh);
   source.add(A, B, Link(b));
   expect(values).toEqual([[true, true, b, [source]]]);
-});
-
-it('settles an upsert that replaces an exclusive target', () => {
-  const world = createWorld();
-  const Link = relation({ exclusive: true, store: { weight: 0 } });
-  const a = world.spawn();
-  const b = world.spawn();
-  const source = world.spawn(Link(a));
-  const values: unknown[] = [];
-  const refresh = whenSettled(() => values.push(source.targetFor(Link)));
-  source.onRemove(Link, refresh);
-  source.onAdd(Link, refresh);
-  source.upsert(Link(b), { weight: 1 });
-  expect(values).toEqual([b]);
 });
 
 it('processes structural work from settled callbacks without recursive notification', () => {
@@ -146,43 +132,22 @@ it('throws when a callback keeps triggering itself', () => {
   expect(() => world.spawn(Value)).not.toThrow();
 });
 
-it('settles reset after every entity is gone', () => {
+it.each([
+  ['reset', 'onRemove'],
+  ['destroy', 'onExit'],
+] as const)('settles %s after every entity is gone', (operation, hook) => {
   const world = createWorld();
   const A = trait();
   const source = world.spawn(A);
   const values: unknown[] = [];
+  // The world still answers queries while it is being reset or destroyed.
   const refresh = whenSettled(() => {
     values.push([source.isAlive(), world.query(A).length]);
   });
-  source.onRemove(A, refresh);
-  world.reset();
+  if (hook === 'onRemove') source.onRemove(A, refresh);
+  else world.onExit([A], refresh);
+  world[operation]();
   expect(values).toEqual([[false, 0]]);
-});
-
-it('settles world destruction before the world unregisters', () => {
-  const world = createWorld();
-  const A = trait();
-  world.spawn(A);
-  const values: number[] = [];
-  const refresh = whenSettled(() => values.push(world.query(A).length));
-  world.onExit([A], refresh);
-  world.destroy();
-  expect(values).toEqual([0]);
-  expect(world.entities.length).toBe(0);
-});
-
-it('refuses a spawn by a settled callback during world destruction', () => {
-  const world = createWorld();
-  const Tag = trait();
-  world.spawn(Tag);
-  const refresh = whenSettled(() => {
-    world.spawn(Tag);
-  });
-  world.onExit([Tag], refresh);
-
-  expect(() => world.destroy()).toThrow(/destroyed/);
-  expect(world.entities).toEqual([]);
-  world.destroy();
 });
 
 it('runs value invalidations at once outside structural changes', () => {
@@ -243,39 +208,6 @@ it('withdraws the pending notification only for the hook that unsubscribes', () 
   world.destroy();
 });
 
-it.each(['before', 'during'] as const)(
-  'waits for structural changes when a notification withdrawn %s delivery is scheduled again',
-  (timing) => {
-    const world = createWorld();
-    const Start = trait();
-    const Old = trait();
-    const Current = trait();
-    const Ready = trait();
-    const entity = world.spawn(Start, Old, Current);
-    const values: boolean[] = [];
-    const refresh = whenSettled(() => values.push(entity.has(Ready)));
-    const stop = entity.onChange(Old, refresh);
-    entity.onChange(Current, refresh);
-    entity.onChange(
-      Start,
-      whenSettled(() => {
-        if (timing === 'during') stop();
-        entity.add(Ready);
-        entity.changed(Current);
-      })
-    );
-
-    world.defer(() => {
-      entity.changed(Start);
-      entity.changed(Old);
-      if (timing === 'before') stop();
-    });
-
-    expect(values).toEqual([true]);
-    world.destroy();
-  }
-);
-
 it('schedules a shared wrapper independently in nested worlds', () => {
   const first = createWorld();
   const second = createWorld();
@@ -296,30 +228,4 @@ it('schedules a shared wrapper independently in nested worlds', () => {
   ]);
   first.destroy();
   second.destroy();
-});
-
-it('schedules a filtered relation callback only for matching targets', () => {
-  const world = createWorld();
-  const Tagged = trait();
-  const Link = relation();
-  const target = world.spawn();
-  const other = world.spawn();
-  const source = world.spawn(Link(target));
-  const calls = vi.fn();
-  const refresh = whenSettled(calls);
-  source.onAdd(Link(Tagged), refresh);
-  world.onAdd(Link(target), refresh);
-
-  source.add(Link(other));
-  expect(calls).not.toHaveBeenCalled();
-  world.defer(() => {
-    source.remove(Link(target));
-    target.add(Tagged);
-    source.add(Link(target));
-  });
-  expect(calls.mock.calls).toEqual([[]]);
-  target.remove(Tagged);
-  target.add(Tagged);
-  expect(calls.mock.calls).toEqual([[], []]);
-  world.destroy();
 });

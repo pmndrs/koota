@@ -1,5 +1,5 @@
 import { afterAll, expect, it, vi } from 'vitest';
-import { createWorld, machine, trait } from '../src';
+import { createWorld, machine, trait } from '../../src';
 
 vi.hoisted(() => {
   vi.stubGlobal('__KOOTA_ASSERTS__', false);

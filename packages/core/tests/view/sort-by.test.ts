@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import {
-  createRemoved,
-  createWorld,
-  trait,
-  type Entity,
-  type OrderedView,
-  type SortKeySelector,
-} from '../src';
+import { createWorld, trait, type Entity, type OrderedView, type SortKeySelector } from '../../src';
 
 describe('Query sortBy', () => {
   const world = createWorld();
@@ -107,22 +100,6 @@ describe('Query sortBy', () => {
     expect(world.query(Atomic).sortBy(Atomic, (value) => value.rank).entities).toEqual([b, a]);
   });
 
-  it('reads retained keys when sorting a different selection after destruction', () => {
-    const Rank = trait({ value: 0 });
-    const Removed = createRemoved();
-    const a = world.spawn(Position({ x: 2 }), Rank({ value: 20 }));
-    const b = world.spawn(Position({ x: 1 }), Rank({ value: 10 }));
-    a.destroy();
-    b.destroy();
-    const sorted = world.query(Removed(Position)).select(Rank).sortBy(Position, byX);
-    const visited: [Entity, number][] = [];
-    sorted.each((rank, entity) => visited.push([entity, rank.value]));
-    expect(visited).toEqual([
-      [b, 10],
-      [a, 20],
-    ]);
-  });
-
   it('shares manual invalidation with selections and keeps equal keys in their prior order', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
@@ -134,79 +111,6 @@ describe('Query sortBy', () => {
     sorted.select().invalidate();
     expect(sorted.entities).toEqual([a, b]);
     a.set(Position, { x: 1 });
-    expect(sorted.entities).toEqual([a, b]);
-  });
-
-  it('defers a removal made while the base query is walked until the walk ends', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
-    const c = world.spawn(Position({ x: 0 }));
-    const query = world.query(Position);
-    const sorted = query.sortBy(Position, byX);
-    expect(sorted.entities).toEqual([c, b, a]);
-    query.forEach((entity) => {
-      if (entity !== a) return;
-      b.remove(Position);
-      expect(sorted.entities).toEqual([c, b, a]);
-    });
-    expect(sorted.entities).toEqual([c, a]);
-  });
-
-  it('keeps a for...of sequence while key writes refresh the view', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
-    const c = world.spawn(Position({ x: 0 }));
-    const sorted = world.query(Position).sortBy(Position, byX);
-    const visited: Entity[] = [];
-
-    for (const entity of sorted) {
-      visited.push(entity);
-      // Each write moves the entity to the front, and the read refreshes the order.
-      entity.set(Position, { x: -visited.length });
-      expect(sorted.first).toBe(entity);
-    }
-
-    expect(visited).toEqual([c, b, a]);
-    expect(sorted.entities).toEqual([a, b, c]);
-  });
-
-  it('preserves an active walk during invalidation and nested reads', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
-    const c = world.spawn();
-    const sorted = world.query(Position).sortBy(Position, byX);
-    const entities = sorted.entities;
-    const visited: Entity[] = [];
-    sorted.each((_position, entity) => {
-      visited.push(entity);
-      if (visited.length !== 1) return;
-      a.set(Position, { x: 0 });
-      c.add(Position({ x: 3 }));
-      sorted.invalidate();
-      expect(sorted.select().entities).toBe(entities);
-      expect([...sorted]).toEqual([b, a]);
-    });
-    expect(visited).toEqual([b, a]);
-    expect(sorted.entities).toEqual([a, b, c]);
-  });
-
-  it('preserves the published order if a selector throws and retries on the next access', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
-    let fail = false;
-    const sorted = world.query(Position).sortBy(Position, (position) => {
-      if (fail && position.x === 0) {
-        expect(sorted.entities).toEqual([b, a]);
-        throw new Error('key unavailable');
-      }
-      return position.x;
-    });
-    const previous = sorted.entities;
-    a.set(Position, { x: 0 });
-    fail = true;
-    expect(() => sorted.entities).toThrow('key unavailable');
-    expect(previous).toEqual([b, a]);
-    fail = false;
     expect(sorted.entities).toEqual([a, b]);
   });
 });

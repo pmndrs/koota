@@ -13,7 +13,7 @@ import {
   trait,
   type Entity,
   type World,
-} from '../src';
+} from '../../src';
 
 describe('Identifiers', () => {
   const Name = identifier();
@@ -50,36 +50,32 @@ describe('Identifiers', () => {
     expect(player.get(Position)).toEqual({ x: 7 });
   });
 
-  it('keeps an inline key and trait view live as ownership and membership change', () => {
-    const player = world.query(Name('player'), Position);
-    const first = world.spawn(Name('player'));
-    expect(player.toArray()).toEqual([]);
-    first.add(Position);
-    expect(player.toArray()).toEqual([first]);
-    first.remove(Name);
-    const second = world.spawn(Name('player'), Position);
-    expect(player.toArray()).toEqual([second]);
-    second.remove(Position);
-    expect(player.toArray()).toEqual([]);
-  });
-
   it('keeps namespaces separate by identifier type, key type and world', () => {
     const First = identifier<string | number>();
     const Second = identifier<string | number>();
+    const Shared = identifier<string | number>({ exclusive: false });
     const other = createWorld();
     try {
-      const text = world.spawn(First('42'), Second(42));
-      const number = world.spawn(First(42), Second('42'));
-      const elsewhere = other.spawn(First('42'));
+      const text = world.spawn(First('42'), Second(42), Shared(42));
+      const number = world.spawn(First(42), Second('42'), Shared(42));
+      const shared = world.spawn(Shared('42'));
+      const elsewhere = other.spawn(First('42'), Shared(42));
       expect(world.lookup(First('42'))).toBe(text);
       expect(world.lookup(First(42))).toBe(number);
       expect(world.lookup(Second(42))).toBe(text);
       expect(other.lookup(First('42'))).toBe(elsewhere);
+      expect(world.lookupAll(Shared(42))).toEqual([text, number]);
+      expect(world.lookupAll(Shared('42'))).toEqual([shared]);
+      expect(world.lookupAll(Second(42))).toEqual([text]);
+      // A key shared under one identifier stays unique under another.
+      expect(() => number.add(Second(42))).toThrow(/IDENTIFIER_TAKEN/);
       expect(world.query(createQuery(First('42'))).toArray()).toEqual([text]);
       expect(world.query(createQuery(First(42))).toArray()).toEqual([number]);
       expect(world.query(createQuery(Second('42'))).toArray()).toEqual([number]);
       world.reset();
+      expect(world.lookupAll(Shared(42))).toEqual([]);
       expect(other.lookup(First('42'))).toBe(elsewhere);
+      expect(other.lookupAll(Shared(42))).toEqual([elsewhere]);
     } finally {
       other.destroy();
     }
@@ -205,15 +201,18 @@ describe('Identifiers', () => {
     expect(world.query(query).toArray()).toEqual([next]);
   });
 
-  it('keeps cached multi-term queries and their subscriptions current', () => {
+  it('keeps inline and cached queries and their subscriptions current as keys move', () => {
     const query = createQuery(Name('kris'), WireId(1), Position);
+    const inline = world.query(Name('kris'), Position);
     const added = vi.fn();
     const removed = vi.fn();
     world.onEnter(query, added);
     world.onExit(query, removed);
     const player = world.spawn(Name('kris'), WireId(1));
     expect(added).not.toHaveBeenCalled();
+    expect(inline.toArray()).toEqual([]);
     player.add(Position);
+    expect(inline.toArray()).toEqual([player]);
     player.add(WireId(2));
     expect(world.query(query)).toHaveLength(0);
     player.add(WireId(1));
@@ -221,61 +220,46 @@ describe('Identifiers', () => {
     player.remove(Name);
     expect(added.mock.calls).toEqual([[player], [player]]);
     expect(removed.mock.calls).toEqual([[player], [player]]);
-  });
 
-  it('keeps a cached query per key current as keys move between entities', () => {
+    // Each key has its own cached query that follows the key to its next owner.
     const first = createQuery(WireId(1));
     const second = createQuery(WireId(2));
-    const a = world.spawn(WireId(1));
-    const b = world.spawn(WireId(2));
-    expect(world.queryFirst(first)).toBe(a);
-    expect(world.queryFirst(second)).toBe(b);
-    a.add(WireId(3));
-    b.add(WireId(1));
-    expect(world.query(first).toArray()).toEqual([b]);
+    const next = world.spawn(Name('kris'), WireId(2), Position);
+    expect(inline.toArray()).toEqual([next]);
+    expect(world.queryFirst(first)).toBe(player);
+    expect(world.queryFirst(second)).toBe(next);
+    player.add(WireId(3));
+    next.add(WireId(1));
+    expect(world.query(first).toArray()).toEqual([next]);
     expect(world.query(second)).toHaveLength(0);
-    b.destroy();
+    next.remove(Position);
+    expect(inline.toArray()).toEqual([]);
+    next.destroy();
     expect(world.query(first)).toHaveLength(0);
   });
 
-  it('resolves entity relation targets using composed identifier terms', () => {
+  it('resolves entity relation targets using composed and shared identifier terms', () => {
+    const DisplayName = identifier({ exclusive: false });
     const ChildOf = relation();
-    const first = world.spawn(Name('kris'), WireId(1));
-    const second = world.spawn(Name('other'), WireId(2));
+    const first = world.spawn(Name('kris'), WireId(1), DisplayName('kris'));
+    const second = world.spawn(Name('other'), WireId(2), DisplayName('kris'));
     const firstChild = world.spawn(Position, ChildOf(first));
     const secondChild = world.spawn(Position, ChildOf(second));
     const query = createQuery(Position, ChildOf(Name('kris'), WireId(1)));
+    const shared = createQuery(ChildOf(DisplayName('kris')));
     expect(world.query(query).toArray()).toEqual([firstChild]);
+    expect(world.query(shared).toArray()).toEqual([firstChild, secondChild]);
     first.remove(Name, WireId);
     second.add(Name('kris'), WireId(1));
     expect(world.query(query).toArray()).toEqual([secondChild]);
-  });
 
-  it('combines identifier filters with relation-pair modifiers', () => {
-    const Link = relation({ store: { weight: 0 } });
-    const target = world.spawn();
-    const Added = createAdded();
-    const Changed = createChanged();
-    const Removed = createRemoved();
-    const added = createQuery(Name('player'), Added(Link(target)));
-    const changed = createQuery(Name('player'), Changed(Link(target)));
-    const removed = createQuery(Name('player'), Removed(Link(target)));
-    world.query(added);
-    world.query(changed);
-    world.query(removed);
-
-    const player = world.spawn(Name('player'));
-    expect(world.query(Name('player'), Not(Link(target))).toArray()).toEqual([player]);
-    player.add(Link(target));
-    expect(world.query(added).toArray()).toEqual([player]);
-    expect(world.query(changed).toArray()).toEqual([player]);
-    expect(world.query(Name('player'), Not(Link(target)))).toHaveLength(0);
-
-    player.set(Link(target), { weight: 1 });
-    expect(world.query(changed).toArray()).toEqual([player]);
-    player.remove(Link(target));
-    expect(world.query(removed).toArray()).toEqual([player]);
-    expect(world.query(Name('player'), Not(Link(target))).toArray()).toEqual([player]);
+    // A shared name selects the children of every owner and follows each rename.
+    second.add(DisplayName('sam'));
+    expect(world.query(shared).toArray()).toEqual([firstChild]);
+    first.remove(DisplayName);
+    expect(world.query(shared)).toHaveLength(0);
+    second.add(DisplayName('kris'));
+    expect(world.query(shared).toArray()).toEqual([secondChild]);
   });
 
   it('treats numeric keys as values even when they equal a live entity handle', () => {
@@ -380,16 +364,6 @@ describe('Identifiers', () => {
     expect(world.query(query).toArray()).toEqual([player]);
   });
 
-  it('assigns, tests and removes identifiers on the world', () => {
-    world.add(Name('main'));
-    expect(world.has(Name)).toBe(true);
-    expect(world.has(Name('main'))).toBe(true);
-    expect(world.has(Name('other'))).toBe(false);
-    world.remove(Name('main'));
-    expect(world.has(Name)).toBe(false);
-    expect(world.lookup(Name('main'))).toBeUndefined();
-  });
-
   it('preserves query exclusion while lookup resolves ownership', () => {
     const entity = world.spawn(Name('hidden'), IsExcluded);
     expect(world.lookup(Name('hidden'))).toBe(entity);
@@ -398,14 +372,30 @@ describe('Identifiers', () => {
   });
 
   it('keeps assignments coherent when a subscriber replaces or destroys the source', () => {
+    const Changed = createChanged();
     const player = world.spawn(WireId(1));
     player.onRemove(WireId(1), () => player.add(WireId(3)));
     player.add(WireId(2));
     expect(world.lookup(WireId(2))).toBeUndefined();
     expect(world.lookup(WireId(3))).toBe(player);
-    player.onAdd(WireId(4), () => player.destroy());
+
+    // A replacement made by an onAdd subscriber reports both assignments.
+    world.query(Changed(WireId));
+    const changed = vi.fn();
+    player.onChange(WireId, changed);
+    player.onAdd(WireId(4), () => player.add(WireId(5)));
     player.add(WireId(4));
     expect(world.lookup(WireId(4))).toBeUndefined();
+    expect(world.lookup(WireId(5))).toBe(player);
+    expect(changed.mock.calls).toEqual([
+      [player, 4],
+      [player, 5],
+    ]);
+    expect(world.query(Changed(WireId)).toArray()).toEqual([player]);
+
+    player.onAdd(WireId(6), () => player.destroy());
+    player.add(WireId(6));
+    expect(world.lookup(WireId(6))).toBeUndefined();
   });
 
   it('rejects invalid key values', () => {
@@ -413,32 +403,6 @@ describe('Identifiers', () => {
       expect(() => WireId(value as number)).toThrow(/strings or finite numbers/);
     }
   });
-
-  it.each(['onAdd', 'Changed query'])(
-    'reports each assignment when a subscriber to %s replaces the key',
-    (event) => {
-      const Changed = createChanged();
-      const player = world.spawn(WireId(1));
-      world.query(Changed(WireId));
-      const changed = vi.fn();
-      player.onChange(WireId, changed);
-      const replace = () => {
-        if (player.targetFor(WireId) === 2) player.add(WireId(3));
-      };
-      if (event === 'onAdd') player.onAdd(WireId(2), replace);
-      else world.onEnter([Changed(WireId)], replace);
-
-      player.add(WireId(2));
-
-      expect(world.lookup(WireId(2))).toBeUndefined();
-      expect(world.lookup(WireId(3))).toBe(player);
-      expect(changed.mock.calls).toEqual([
-        [player, 2],
-        [player, 3],
-      ]);
-      expect(world.query(Changed(WireId)).toArray()).toEqual([player]);
-    }
-  );
 
   it('releases ownership when removal callbacks assign to an entity being destroyed', () => {
     // Disable destroyed-entity retention so the id is reused on the next spawn.
@@ -494,27 +458,6 @@ describe('Identifiers', () => {
       expect(matches).toEqual([first, second]);
       matches.length = 0;
       expect(world.lookupAll(DisplayName('kris'))).toEqual([first]);
-    });
-
-    it('keeps shared numeric keys scoped by namespace, key type and world', () => {
-      const Key = identifier<string | number>({ exclusive: false });
-      const Unique = identifier<number>({ exclusive: true });
-      const other = createWorld();
-      try {
-        const first = world.spawn(Key(42), Unique(42));
-        const second = world.spawn(Key(42));
-        const text = world.spawn(Key('42'));
-        const elsewhere = other.spawn(Key(42));
-        expect(world.lookupAll(Key(42))).toEqual([first, second]);
-        expect(world.lookupAll(Key('42'))).toEqual([text]);
-        expect(world.lookupAll(Unique(42))).toEqual([first]);
-        expect(() => second.add(Unique(42))).toThrow(/IDENTIFIER_TAKEN/);
-        world.reset();
-        expect(world.lookupAll(Key(42))).toEqual([]);
-        expect(other.lookupAll(Key(42))).toEqual([elsewhere]);
-      } finally {
-        other.destroy();
-      }
     });
 
     it('intersects shared and unique keys in inline and cached queries', () => {
@@ -577,22 +520,6 @@ describe('Identifiers', () => {
       expect(world.query(query).toArray()).toEqual([next]);
     });
 
-    it('keeps shared-name query views live as owners join and leave', () => {
-      const empty = world.query(DisplayName('kris'));
-      const first = world.spawn(DisplayName('kris'));
-      const singleton = world.query(DisplayName('kris'));
-      const second = world.spawn(DisplayName('kris'));
-      for (const view of [empty, singleton]) {
-        expect(view.toArray()).toEqual([first, second]);
-      }
-      first.remove(DisplayName);
-      for (const view of [empty, singleton]) {
-        expect(view.toArray()).toEqual([second]);
-      }
-      second.destroy();
-      for (const view of [empty, singleton]) expect(view).toHaveLength(0);
-    });
-
     it('releases only the departing owner on removal and destruction', () => {
       const first = world.spawn(DisplayName('kris'));
       const second = world.spawn(DisplayName('kris'));
@@ -607,90 +534,6 @@ describe('Identifiers', () => {
       expect(world.lookup(DisplayName('kris'))).toBeUndefined();
       const next = world.spawn(DisplayName('kris'));
       expect(world.lookupAll(DisplayName('kris'))).toEqual([next]);
-    });
-
-    it('keeps shared owners current when removals move entities across pages', () => {
-      const entities = Array.from({ length: 2_050 }, () => world.spawn(DisplayName('kris')));
-      entities[100].remove(DisplayName);
-      entities[512].add(DisplayName('sam'));
-      entities[2_048].remove(DisplayName);
-      entities[2_049].destroy();
-      const remaining = entities.filter((_, i) => ![100, 512, 2_048, 2_049].includes(i));
-      expect(world.lookupAll(DisplayName('kris')).sort((a, b) => a - b)).toEqual(
-        remaining.sort((a, b) => a - b)
-      );
-      for (const entity of remaining) expect(entity.has(DisplayName('kris'))).toBe(true);
-      expect(entities[512].has(DisplayName('kris'))).toBe(false);
-      expect(entities[512].has(DisplayName('sam'))).toBe(true);
-      entities[100].add(DisplayName('kris'));
-      expect(entities[100].has(DisplayName('kris'))).toBe(true);
-    });
-
-    it('tracks assignment and presence independently for shared owners', () => {
-      const Added = createAdded();
-      const Changed = createChanged();
-      const Removed = createRemoved();
-      const first = world.spawn(DisplayName('kris'));
-      const second = world.spawn(DisplayName('kris'));
-      const changed = createQuery(Changed(DisplayName), DisplayName('kris'));
-      expect(world.query(changed).toArray()).toEqual([first, second]);
-      world.query(Added(DisplayName));
-      world.query(Removed(DisplayName));
-      second.add(DisplayName('sam'));
-      expect(world.query(changed)).toHaveLength(0);
-      second.add(DisplayName('kris'));
-      expect(world.query(changed).toArray()).toEqual([second]);
-      expect(world.query(Added(DisplayName))).toHaveLength(0);
-      second.remove(DisplayName);
-      expect(world.query(Removed(DisplayName)).toArray()).toEqual([second]);
-      expect(world.query(DisplayName('kris')).toArray()).toEqual([first]);
-    });
-
-    it('selects relation targets with shared names and follows each rename', () => {
-      const ChildOf = relation();
-      const first = world.spawn(DisplayName('kris'));
-      const second = world.spawn(DisplayName('kris'));
-      const firstChild = world.spawn(ChildOf(first));
-      const secondChild = world.spawn(ChildOf(second));
-      const query = createQuery(ChildOf(DisplayName('kris')));
-      expect(world.query(query).toArray()).toEqual([firstChild, secondChild]);
-      second.add(DisplayName('sam'));
-      expect(world.query(query).toArray()).toEqual([firstChild]);
-      first.remove(DisplayName);
-      expect(world.query(query)).toHaveLength(0);
-      second.add(DisplayName('kris'));
-      expect(world.query(query).toArray()).toEqual([secondChild]);
-    });
-
-    it('includes excluded owners and world assignments in lookups', () => {
-      const hidden = world.spawn(DisplayName('kris'), IsExcluded);
-      const visible = world.spawn(DisplayName('kris'));
-      world.add(DisplayName('kris'));
-      expect(world.lookupAll(DisplayName('kris'))).toHaveLength(3);
-      expect(world.has(DisplayName('kris'))).toBe(true);
-      expect(world.query(DisplayName('kris')).toArray()).toEqual([visible]);
-      expect(world.queryFirst(DisplayName('kris'))).toBe(visible);
-      world.remove(DisplayName('kris'));
-      expect(world.lookupAll(DisplayName('kris'))).toEqual([hidden, visible]);
-    });
-
-    it('publishes each assignment when callbacks replace a shared key', () => {
-      const first = world.spawn(DisplayName('kris'));
-      const second = world.spawn(DisplayName('sam'));
-      const changed = vi.fn();
-      second.onChange(DisplayName, changed);
-      second.onAdd(DisplayName('kris'), () => second.add(DisplayName('alex')));
-      second.add(DisplayName('kris'));
-      expect(changed.mock.calls).toEqual([
-        [second, 'kris'],
-        [second, 'alex'],
-      ]);
-      expect(world.lookupAll(DisplayName('kris'))).toEqual([first]);
-      expect(world.lookupAll(DisplayName('alex'))).toEqual([second]);
-      second.onRemove(DisplayName('alex'), () => second.add(DisplayName('kris')));
-      second.destroy();
-      expect(world.lookupAll(DisplayName('kris'))).toEqual([first]);
-      expect(world.lookupAll(DisplayName('alex'))).toEqual([]);
     });
   });
 });

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  $internal,
   createAdded,
   createChanged,
   createRemoved,
@@ -11,7 +10,7 @@ import {
   relation,
   trait,
   type QueryView,
-} from '../src';
+} from '../../src';
 
 const Position = trait({ x: 0, y: 0 });
 const IsActive = trait();
@@ -131,21 +130,6 @@ describe('Query modifiers', () => {
     expect(added).not.toHaveBeenCalled();
   });
 
-  it('modifiers can be added as one call or separately', () => {
-    const ctx = world[$internal];
-    const entity = world.spawn();
-    entity.add(Position, IsActive);
-
-    let entities: any = world.query(Not(Foo), Not(Bar));
-    expect(entities.length).toBe(1);
-
-    entities = world.query(Not(Foo, Bar));
-    expect(entities.length).toBe(1);
-
-    // These queries should be hashed the same.
-    expect(ctx.queriesHashMap.size).toBe(1);
-  });
-
   it('should correctly populate Added queries when traits are added', () => {
     const Added = createAdded();
 
@@ -224,32 +208,6 @@ describe('Query modifiers', () => {
     entityB.add(Bar);
     entities = world.query(Added(Foo, Bar));
     expect(entities.first!).toBe(entityB);
-  });
-
-  it('should track multiple Added modifiers independently', () => {
-    const Added = createAdded();
-    const Added2 = createAdded();
-
-    const entityA = world.spawn();
-    const entityB = world.spawn();
-
-    let entities = world.query(Added(Foo));
-    expect(entities.length).toBe(0);
-
-    let entities2 = world.query(Added2(Foo));
-    expect(entities2.length).toBe(0);
-
-    entityA.add(Foo);
-    entities = world.query(Added(Foo));
-    expect(entities.length).toBe(1);
-
-    entityB.remove(Foo);
-    entityB.add(Foo);
-    entities = world.query(Added(Foo));
-    entities2 = world.query(Added2(Foo));
-
-    expect(entities.length).toBe(1);
-    expect(entities2.length).toBe(2);
   });
 
   it('should seed Added queries from the world history when created after the trait is added', () => {
@@ -640,62 +598,6 @@ describe('Query modifiers', () => {
     expect(world.query(Bar, Changed(Position)).toArray()).toEqual([entity]);
   });
 
-  it('tracks writes for a Changed query created after writes outside other filters', () => {
-    const Changed = createChanged();
-    const entity = world.spawn(Position, IsActive);
-    expect(world.query(Foo, Changed(Position)).length).toBe(0);
-    entity.set(Position, { x: 1 });
-
-    const LaterChanged = createChanged();
-    expect(world.query(IsActive, LaterChanged(Position)).toArray()).toEqual([entity]);
-    expect(world.query(IsActive, LaterChanged(Position)).length).toBe(0);
-
-    entity.set(Position, { x: 2 });
-    expect(world.query(IsActive, LaterChanged(Position)).toArray()).toEqual([entity]);
-    expect(world.query(Foo, Changed(Position)).length).toBe(0);
-
-    entity.add(Foo);
-    expect(world.query(Foo, Changed(Position)).toArray()).toEqual([entity]);
-  });
-
-  it.each([
-    ['Added', createAdded],
-    ['Removed', createRemoved],
-  ] as const)(
-    'combines Changed with %s in either parameter and event order',
-    (kind, createTracker) => {
-      const Tracked = createTracker();
-      // Independent readers prevent the query cache from collapsing the parameter orders.
-      const parameters = [
-        [Tracked(Foo), createChanged()(Position)],
-        [createChanged()(Position), Tracked(Foo)],
-      ];
-      const read = () => parameters.map((params) => world.query(...params).toArray());
-      const entity = kind === 'Added' ? world.spawn(Position) : world.spawn(Position, Foo);
-      const fire = () => (kind === 'Added' ? entity.add(Foo) : entity.remove(Foo));
-      const undo = () => (kind === 'Added' ? entity.remove(Foo) : entity.add(Foo));
-      expect(read()).toEqual([[], []]);
-
-      // Current Position membership seeds Changed even when the other group does not match yet.
-      fire();
-      expect(read()).toEqual([[entity], [entity]]);
-      expect(read()).toEqual([[], []]);
-
-      undo();
-      entity.set(Position, { x: 1 });
-      expect(read()).toEqual([[], []]);
-      fire();
-      expect(read()).toEqual([[entity], [entity]]);
-
-      undo();
-      fire();
-      expect(read()).toEqual([[], []]);
-      entity.set(Position, { x: 2 });
-      expect(read()).toEqual([[entity], [entity]]);
-      expect(read()).toEqual([[], []]);
-    }
-  );
-
   it('should keep tracking after the world is reset', () => {
     const Added = createAdded();
     const Removed = createRemoved();
@@ -720,50 +622,27 @@ describe('Query modifiers', () => {
     expect(world.query(Removed(Foo)).first).toBe(entity);
   });
 
-  it('each should work with Added modifier', () => {
-    const Added = createAdded();
-    const entity = world.spawn(Position({ x: 10, y: 20 }));
+  it.each([
+    ['Added', createAdded()(Position)],
+    ['Changed', createChanged()(Position)],
+  ] as const)(
+    'each should work with the %s modifier combined with other traits',
+    (_, trackedPosition) => {
+      const Name = trait({ name: '' });
+      const entity = world.spawn(Position({ x: 5, y: 15 }), Name({ name: 'test' }));
 
-    world.query(Added(Position)).each((position) => {
-      expect(position).toHaveProperty('x', 10);
-      expect(position).toHaveProperty('y', 20);
-      position.x = 100;
-    });
+      world.query(trackedPosition, Name).each((position, name) => {
+        expect(position).toHaveProperty('x', 5);
+        expect(position).toHaveProperty('y', 15);
+        expect(name).toHaveProperty('name', 'test');
+        position.x = 50;
+        name.name = 'updated';
+      });
 
-    expect(entity.get(Position)!.x).toBe(100);
-  });
-
-  it('each should work with Added modifier combined with other traits', () => {
-    const Added = createAdded();
-    const Name = trait({ name: '' });
-    const entity = world.spawn(Position({ x: 5, y: 15 }), Name({ name: 'test' }));
-
-    world.query(Added(Position), Name).each((position, name) => {
-      expect(position).toHaveProperty('x', 5);
-      expect(position).toHaveProperty('y', 15);
-      expect(name).toHaveProperty('name', 'test');
-      position.x = 50;
-      name.name = 'updated';
-    });
-
-    expect(entity.get(Position)!.x).toBe(50);
-    expect(entity.get(Name)!.name).toBe('updated');
-  });
-
-  it('each should work with Changed modifier', () => {
-    const Changed = createChanged();
-    const entity = world.spawn(Position({ x: 1, y: 2 }));
-
-    entity.changed(Position);
-
-    world.query(Changed(Position)).each((position) => {
-      expect(position).toHaveProperty('x', 1);
-      expect(position).toHaveProperty('y', 2);
-      position.x = 10;
-    });
-
-    expect(entity.get(Position)!.x).toBe(10);
-  });
+      expect(entity.get(Position)!.x).toBe(50);
+      expect(entity.get(Name)!.name).toBe('updated');
+    }
+  );
 
   it('reports writes made in each of another query to a Changed query', () => {
     const Changed = createChanged();
@@ -781,115 +660,43 @@ describe('Query modifiers', () => {
     expect(world.query(Changed(Position)).length).toBe(0);
   });
 
-  it('each should work with Removed modifier', () => {
-    const Removed = createRemoved();
-    const Name = trait({ name: '' });
-    const entity = world.spawn(Position({ x: 7, y: 8 }), Name({ name: 'keep' }));
+  it.each([
+    ['Added', createAdded, 'add', []],
+    ['Removed', createRemoved, 'remove', [Position, Foo]],
+    ['Changed', createChanged, 'changed', [Position, Foo]],
+  ] as const)(
+    'should combine Or with %s modifiers to match ANY tracked trait',
+    (name, createTracker, operation, spawned) => {
+      const Tracked = createTracker();
 
-    entity.remove(Position);
+      const entityA = world.spawn(...spawned);
+      const entityB = world.spawn(...spawned);
+      const entityC = world.spawn(...spawned);
 
-    // Removed modifier includes the removed trait in stores, plus any other queried traits
-    world.query(Removed(Position), Name).each((position, name) => {
-      // Position data may still be accessible (stale) even after removal
-      expect(position).toHaveProperty('x');
-      expect(name).toHaveProperty('name', 'keep');
-      name.name = 'modified';
-    });
+      // A Changed query starts with its current members and the others start empty.
+      let entities = world.query(Or(Tracked(Position), Tracked(Foo)));
+      expect(entities.toArray()).toEqual(name === 'Changed' ? [entityA, entityB, entityC] : []);
 
-    expect(entity.get(Name)!.name).toBe('modified');
-  });
+      // Only Position on entityA
+      entityA[operation](Position);
+      entities = world.query(Or(Tracked(Position), Tracked(Foo)));
+      expect(entities).toContain(entityA);
+      expect(entities.length).toBe(1);
 
-  it('should combine Or with Changed modifiers to match ANY changed trait', () => {
-    const Changed = createChanged();
+      // Only Foo on entityB
+      entityB[operation](Foo);
+      entities = world.query(Or(Tracked(Position), Tracked(Foo)));
+      expect(entities).toContain(entityB);
+      expect(entities.length).toBe(1);
 
-    const entityA = world.spawn(Position, Foo);
-    const entityB = world.spawn(Position, Foo);
-    const entityC = world.spawn(Position, Foo);
-
-    // The first read includes current membership.
-    let entities = world.query(Or(Changed(Position), Changed(Foo)));
-    expect(entities.toArray()).toEqual([entityA, entityB, entityC]);
-
-    // Change only Position on entityA
-    entityA.changed(Position);
-    entities = world.query(Or(Changed(Position), Changed(Foo)));
-    expect(entities).toContain(entityA);
-    expect(entities.length).toBe(1);
-
-    // Change only Foo on entityB
-    entityB.changed(Foo);
-    entities = world.query(Or(Changed(Position), Changed(Foo)));
-    expect(entities).toContain(entityB);
-    expect(entities.length).toBe(1);
-
-    // Change both on entityC - should still match
-    entityC.changed(Position);
-    entityC.changed(Foo);
-    entities = world.query(Or(Changed(Position), Changed(Foo)));
-    expect(entities).toContain(entityC);
-    expect(entities.length).toBe(1);
-  });
-
-  it('should combine Or with Added modifiers to match ANY added trait', () => {
-    const Added = createAdded();
-
-    const entityA = world.spawn();
-    const entityB = world.spawn();
-    const entityC = world.spawn();
-
-    // No additions yet
-    let entities = world.query(Or(Added(Position), Added(Foo)));
-    expect(entities.length).toBe(0);
-
-    // Add only Position to entityA
-    entityA.add(Position);
-    entities = world.query(Or(Added(Position), Added(Foo)));
-    expect(entities).toContain(entityA);
-    expect(entities.length).toBe(1);
-
-    // Add only Foo to entityB
-    entityB.add(Foo);
-    entities = world.query(Or(Added(Position), Added(Foo)));
-    expect(entities).toContain(entityB);
-    expect(entities.length).toBe(1);
-
-    // Add both to entityC - should still match
-    entityC.add(Position, Foo);
-    entities = world.query(Or(Added(Position), Added(Foo)));
-    expect(entities).toContain(entityC);
-    expect(entities.length).toBe(1);
-  });
-
-  it('should combine Or with Removed modifiers to match ANY removed trait', () => {
-    const Removed = createRemoved();
-
-    const entityA = world.spawn(Position, Foo);
-    const entityB = world.spawn(Position, Foo);
-    const entityC = world.spawn(Position, Foo);
-
-    // No removals yet
-    let entities = world.query(Or(Removed(Position), Removed(Foo)));
-    expect(entities.length).toBe(0);
-
-    // Remove only Position from entityA
-    entityA.remove(Position);
-    entities = world.query(Or(Removed(Position), Removed(Foo)));
-    expect(entities).toContain(entityA);
-    expect(entities.length).toBe(1);
-
-    // Remove only Foo from entityB
-    entityB.remove(Foo);
-    entities = world.query(Or(Removed(Position), Removed(Foo)));
-    expect(entities).toContain(entityB);
-    expect(entities.length).toBe(1);
-
-    // Remove both from entityC - should still match
-    entityC.remove(Position);
-    entityC.remove(Foo);
-    entities = world.query(Or(Removed(Position), Removed(Foo)));
-    expect(entities).toContain(entityC);
-    expect(entities.length).toBe(1);
-  });
+      // Both on entityC should still match once
+      entityC[operation](Position);
+      entityC[operation](Foo);
+      entities = world.query(Or(Tracked(Position), Tracked(Foo)));
+      expect(entities).toContain(entityC);
+      expect(entities.length).toBe(1);
+    }
+  );
 
   it('should track Changed on a relation', () => {
     const ChildOf = relation({ store: { order: 0 } });
@@ -979,39 +786,6 @@ describe('Query modifiers', () => {
       // And its target
       expect(entity.targetFor(Contains)).toBe(gold);
     });
-  });
-
-  // @internal Tests internal implementation edge case with generation overflow
-  it('[internal] should handle Changed modifier when trait registration causes generation overflow', () => {
-    // Create a fresh world to control trait registration count
-    const testWorld = createWorld();
-
-    // IsExcluded is already registered (bitflag=2 after), register 29 more to get bitflag=2^30
-    const fillerTraits = Array.from({ length: 29 }, () => trait());
-    for (const t of fillerTraits) {
-      testWorld.spawn(t);
-    }
-
-    // Create the modifier before registering traits in another generation.
-    const Changed = createChanged();
-
-    // Spawn an entity so entityIndex.dense is not empty (required to trigger the bug)
-    const entity = testWorld.spawn();
-
-    // Register the 31st trait to trigger overflow (bitflag 2^30 -> 2^31 -> overflow)
-    const Trait31 = trait();
-    entity.add(Trait31);
-
-    // Now entityMasks has 2 generations, but changedMask only has 1
-
-    // Create the 32nd trait - will be in generation 1
-    const NewTrait = trait();
-
-    // This should not throw "cannot read properties of undefined (reading '0')"
-    // when accessing changedMask[generationId][eid] where generationId is 1 but changedMask only has index 0
-    expect(() => {
-      testWorld.query(Changed(NewTrait));
-    }).not.toThrow();
   });
 
   it('Added tracks a specific pair', () => {
@@ -1189,20 +963,6 @@ describe('Query modifiers', () => {
     small.destroy();
   });
 
-  it('queries with different tracking modifiers nested in Or stay separate', () => {
-    const AddedFoo = createAdded();
-    const AddedBar = createAdded();
-    const foo = world.spawn(Foo);
-    const bar = world.spawn(Bar);
-    const neither = world.spawn();
-
-    expect(world.query(Or(AddedFoo(Foo))).toArray()).toEqual([foo]);
-    expect(world.query(Or(AddedBar(Bar))).toArray()).toEqual([bar]);
-    // Nesting in Or is not the same query as the modifier alone, or as no parameters at all.
-    expect(world.query(AddedFoo(Foo)).toArray()).toEqual([foo]);
-    expect(world.query().toArray()).toEqual([foo, bar, neither]);
-  });
-
   it('Or keeps an entity whose other tracked term still holds', () => {
     const ChildOf = relation();
     const Added = createAdded();
@@ -1218,40 +978,5 @@ describe('Query modifiers', () => {
 
     expect(world.query(Or(Added(ChildOf(parent)), Added(Foo))).toArray()).toEqual([child]);
     expect(world.query(Or(Added(Bar), Added(Foo))).toArray()).toEqual([bar]);
-  });
-
-  it('a pair removal from before the query does not bypass its other terms', () => {
-    const ChildOf = relation();
-    const Removed = createRemoved();
-    const parent = world.spawn();
-    const entity = world.spawn(ChildOf(parent));
-    entity.remove(ChildOf(parent));
-
-    expect(world.query(Removed(ChildOf(parent)), Foo)).toHaveLength(0);
-
-    // The entity lacked Foo when the query was seeded, so the old removal is not carried over.
-    entity.add(Foo);
-    expect(world.query(Removed(ChildOf(parent)), Foo)).toHaveLength(0);
-  });
-
-  it('a trait write is not taken for a change to a tracked pair', () => {
-    const fresh = createWorld();
-    const Health = trait({ value: 0 });
-    const Likes = relation();
-    const Changed = createChanged();
-    const targets = Array.from({ length: 8 }, () => fresh.spawn());
-    const entity = fresh.spawn(Health);
-    const changed = () =>
-      fresh.query(Changed(Health), Or(...targets.map((target) => Changed(Likes(target)))));
-
-    expect(changed()).toHaveLength(0);
-
-    // The entity holds none of the pairs, so writing Health satisfies only the first term.
-    entity.set(Health, { value: 1 });
-    expect(changed()).toHaveLength(0);
-
-    entity.add(Likes(targets[3]));
-    expect(changed().toArray()).toEqual([entity]);
-    fresh.destroy();
   });
 });

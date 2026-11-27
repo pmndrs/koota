@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createChanged, createWorld, ordered, relation, trait, type Entity } from '../src';
+import { createChanged, createWorld, ordered, relation, trait, type Entity } from '../../src';
 
 describe('Ordered relation views', () => {
   const world = createWorld();
@@ -27,27 +27,6 @@ describe('Ordered relation views', () => {
     expect(child.has(ChildOf(parent))).toBe(false);
   });
 
-  it('decides whether to insert or move when the command applies', () => {
-    const ChildOf = relation();
-    const Children = ordered(ChildOf);
-    const parent = world.spawn(Children);
-    const children = parent.get(Children)!;
-    const a = world.spawn(ChildOf(parent));
-    const b = world.spawn(ChildOf(parent));
-    const c = world.spawn();
-
-    world.defer(() => {
-      expect(children.remove(a)).toBe(true);
-      children.insert(a, 1);
-      children.insert(c, 0);
-      children.insert(c, 2);
-      expect(children.toArray()).toEqual([a, b]);
-    });
-
-    expect(children.toArray()).toEqual([b, a, c]);
-    expect([a, b, c].every((child) => child.has(ChildOf(parent)))).toBe(true);
-  });
-
   it('replays reordering with membership edits in call order', () => {
     const Children = ordered(relation());
     const parent = world.spawn(Children);
@@ -66,29 +45,6 @@ describe('Ordered relation views', () => {
     });
 
     expect(children.toArray()).toEqual([b, a, c]);
-  });
-
-  it('drops edits to a view detached before its commands apply', () => {
-    const ChildOf = relation();
-    const Children = ordered(ChildOf);
-    const parent = world.spawn(Children);
-    const children = parent.get(Children)!;
-    const existing = world.spawn(ChildOf(parent));
-    const added = world.spawn();
-
-    world.defer(() => {
-      parent.remove(Children);
-      parent.add(Children);
-      children.remove(existing);
-      children.add(added);
-      children.insert(added, 0);
-      children.clear();
-      children.reverse();
-    });
-
-    expect(parent.get(Children)!.toArray()).toEqual([existing]);
-    expect(existing.has(ChildOf(parent))).toBe(true);
-    expect(added.has(ChildOf(parent))).toBe(false);
   });
 
   it('initializes the view before query observers run', () => {

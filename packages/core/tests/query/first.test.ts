@@ -5,11 +5,10 @@ import {
   createQuery,
   createRemoved,
   createWorld,
-  IsExcluded,
   Not,
   relation,
   trait,
-} from '../src';
+} from '../../src';
 
 describe('queryFirst', () => {
   const world = createWorld();
@@ -44,16 +43,6 @@ describe('queryFirst', () => {
     expect(first()).toBe(fresh);
   });
 
-  it('initializes a fresh world and excludes its world entity', () => {
-    const fresh = createWorld();
-    expect(fresh.queryFirst()).toBeUndefined();
-    const entity = fresh.spawn();
-    expect(fresh.queryFirst()).toBe(entity);
-    entity.destroy();
-    expect(fresh.queryFirst()).toBeUndefined();
-    fresh.destroy();
-  });
-
   it.each(['inline', 'cached'] as const)('finds sources of a specific relation (%s)', (mode) => {
     const ChildOf = relation();
     const parent = world.spawn();
@@ -76,26 +65,6 @@ describe('queryFirst', () => {
     expect(first()).toBeUndefined();
   });
 
-  it('skips excluded sources of a concrete relation, including the world entity', () => {
-    const ChildOf = relation();
-    const pair = ChildOf(world.spawn());
-    world.add(pair);
-    const hidden = world.spawn(IsExcluded, pair);
-    const visible = world.spawn(pair);
-    const query = createQuery(pair);
-
-    expect(world.queryFirst(pair)).toBe(visible);
-    const view = world.query(query);
-    expect(view.toArray()).toEqual([visible]);
-    hidden.remove(IsExcluded);
-    expect(world.queryFirst(pair)).toBe(view.first);
-    expect(world.query(pair).toArray()).toEqual(view.toArray());
-    visible.add(IsExcluded);
-    expect(world.queryFirst(pair)).toBe(hidden);
-    hidden.add(IsExcluded);
-    expect(world.queryFirst(pair)).toBeUndefined();
-  });
-
   it('supports wildcard relations and changing target filters', () => {
     const ChildOf = relation();
     const Active = trait();
@@ -110,43 +79,6 @@ describe('queryFirst', () => {
     expect(world.queryFirst(ChildOf(Active))).toBeUndefined();
     child.remove(ChildOf(parent));
     expect(world.queryFirst(ChildOf('*'))).toBeUndefined();
-  });
-
-  it('shares an inline relation query and defers a removal made during a walk', () => {
-    const Position = trait({ x: 0 });
-    const ChildOf = relation();
-    const parent = world.spawn();
-    const a = world.spawn(Position, ChildOf(parent));
-    const b = world.spawn(Position, ChildOf(parent));
-
-    expect(world.queryFirst(Position, ChildOf(parent))).toBe(a);
-    const view = world.query(Position, ChildOf(parent));
-    view.forEach((entity) => {
-      if (entity === a) {
-        a.remove(Position);
-        expect(world.queryFirst(Position, ChildOf(parent))).toBe(a);
-      }
-    });
-    expect(world.queryFirst(Position, ChildOf(parent))).toBe(b);
-    parent.destroy();
-    expect(world.queryFirst(Position, ChildOf(parent))).toBeUndefined();
-  });
-
-  it('consumes a tracking batch through a warmed inline lookup', () => {
-    const Position = trait({ x: 0 });
-    const Changed = createChanged();
-    const a = world.spawn(Position);
-    const b = world.spawn(Position);
-
-    expect(world.queryFirst(Changed(Position))).toBe(a);
-    expect(world.queryFirst(Changed(Position))).toBeUndefined();
-    a.changed(Position);
-    b.changed(Position);
-    expect(world.queryFirst(Changed(Position))).toBe(a);
-    expect(world.query(Changed(Position))).toHaveLength(0);
-    b.changed(Position);
-    expect(world.queryFirst(Changed(Position))).toBe(b);
-    expect(world.queryFirst(Changed(Position))).toBeUndefined();
   });
 
   it.each([

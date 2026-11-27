@@ -1,10 +1,7 @@
-import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  $internal,
-  createAdded,
   createChanged,
   createQuery,
-  createRemoved,
   createWorld,
   IsExcluded,
   Not,
@@ -12,8 +9,8 @@ import {
   relation,
   trait,
   type Entity,
-} from '../src';
-import { hasNativeGc, waitForFinalization } from './utils/gc';
+} from '../../src';
+import { hasNativeGc, waitForFinalization } from '../utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -78,46 +75,6 @@ describe('Query', () => {
     expect(players.toArray()).toEqual([second]);
   });
 
-  it.each([0, 256])(
-    'reports nothing to a query subscribed during the same add after %i distinct trait combinations',
-    (combinations) => {
-      const entity = world.spawn(Name);
-      const entered = vi.fn();
-      let held: Entity[] = [];
-      world.onEnter([IsActive], (match) => {
-        if (match !== entity) return;
-        // The entity is already a member when the subscription is made.
-        held = world.query(IsActive, Name).toArray();
-        world.onEnter([IsActive, Name], entered);
-      });
-      const flags = Array.from({ length: 8 }, () => trait());
-      for (const flag of flags) world.query(IsActive, flag);
-      for (let mask = 0; mask < combinations; mask++) {
-        world.spawn(...flags.filter((_, bit) => (mask & (1 << bit)) !== 0)).add(IsActive);
-      }
-      entity.add(IsActive);
-      expect(held).toEqual([entity]);
-      expect(entered).not.toHaveBeenCalled();
-    }
-  );
-
-  it('reconciles a live view after a subscriber interrupts a previous removal', () => {
-    const stop = world.onExit([Position], () => {
-      throw new Error('interrupted');
-    });
-    const moving = world.query(IsActive, Position);
-    world.query(IsActive, Name);
-    world.query(IsActive, IsPlayer);
-    world.query(IsActive);
-
-    world.spawn(IsActive).remove(IsActive);
-    const entity = world.spawn(Position, IsActive);
-    expect(() => entity.remove(Position)).toThrow('interrupted');
-    stop();
-    entity.remove(IsActive);
-    expect(moving.toArray()).toEqual([]);
-  });
-
   it('should query entities that match the parameters', () => {
     const entityA = world.spawn();
     const entityB = world.spawn();
@@ -142,69 +99,6 @@ describe('Query', () => {
     entityA.remove(IsActive);
     entities = world.query(Position, Name, IsActive);
     expect(entities.length).toBe(0);
-  });
-
-  it('keeps retained entities distinct from new spawns until eviction', () => {
-    const world = createWorld({ retain: 2 });
-    const Removed = createRemoved();
-    world.query(Removed(Position));
-    const first = world.spawn(Position);
-    world.query(Position);
-
-    first.destroy();
-    const second = world.spawn(Position);
-    second.destroy();
-    const replacement = world.spawn(Position);
-
-    expect(replacement.id()).not.toBe(first.id());
-    expect(replacement.id()).not.toBe(second.id());
-    expect(Array.from(world.query(Position))).toEqual([replacement]);
-    expect(Array.from(world.query(Removed(Position)))).toEqual([first, second]);
-    expect(world.query(Removed(Position)).length).toBe(0);
-    world.spawn().destroy();
-    expect(world.spawn(Position).id()).toBe(first.id());
-  });
-
-  it('should only create one hash indpendent of the order of the parameters', () => {
-    const ctx = world[$internal];
-    let entities: any = world.query(Position, Name, Not(IsActive));
-    expect(entities.length).toBe(0);
-
-    const entA = world.spawn();
-    entA.add(Position, Name);
-
-    entities = world.query(Position, Name, Not(IsActive));
-    expect(entities.length).toBe(1);
-
-    entities = world.query(Name, Not(IsActive), Position);
-    expect(entities.length).toBe(1);
-
-    expect(ctx.queriesHashMap.size).toBe(1);
-
-    // Test various permutations of modifiers.
-    entities = world.query(IsActive, Not(Position, Name));
-    expect(entities.length).toBe(0);
-
-    expect(ctx.queriesHashMap.size).toBe(2);
-
-    entities = world.query(Not(Name, Position), IsActive);
-    expect(entities.length).toBe(0);
-
-    entities = world.query(Not(Position), IsActive, Not(Name));
-    expect(entities.length).toBe(0);
-
-    expect(ctx.queriesHashMap.size).toBe(2);
-  });
-
-  it('should return all queryable entities when parameters are empty', () => {
-    world.spawn();
-    // IsExcluded marks the entity is non-queryable.
-    world.spawn(IsExcluded);
-    world.spawn(Position);
-    world.spawn(Name, Bar);
-    const entities = world.query();
-
-    expect(entities.length).toBe(3);
   });
 
   it('can cache and use the query key', () => {
@@ -235,54 +129,6 @@ describe('Query', () => {
     world.spawn(Position, IsExcluded);
     const entities = world.query(Position);
     expect(entities.length).toBe(0);
-  });
-
-  it('defers a trait removal made during each and reports every row written', () => {
-    const first = world.spawn(Position);
-    const second = world.spawn(Position);
-    const changed = vi.fn();
-    world.onChange(Position, changed);
-
-    world.query(Position).each((position, current) => {
-      position.x++;
-      if (current === second) first.remove(Position);
-    });
-
-    expect(changed.mock.calls).toEqual([[first], [second]]);
-    expect(first.has(Position)).toBe(false);
-  });
-
-  it('defers a destroy made during each so no id is recycled under the walk', () => {
-    const first = world.spawn(Position);
-    const second = world.spawn(Position);
-    let replacement = first;
-    const changed = vi.fn();
-    world.onChange(Position, changed);
-
-    world.query(Position).each((position, current) => {
-      position.x++;
-      if (current === second) {
-        first.destroy();
-        replacement = world.spawn(Position({ x: 7 }));
-      }
-    });
-
-    expect(replacement).not.toBe(first);
-    expect(first.isAlive()).toBe(false);
-    expect(changed.mock.calls).toEqual([[replacement], [first], [second]]);
-    expect(replacement.get(Position)?.x).toBe(7);
-  });
-
-  it('keeps Removed query history available after destroying an entity', () => {
-    const Removed = createRemoved();
-    const entity = world.spawn(Position({ x: 7 }));
-    world.query(Removed(Position));
-    entity.destroy();
-    let historical = 0;
-    world.query(Removed(Position)).each((position) => {
-      historical = position.x;
-    });
-    expect(historical).toBe(7);
   });
 
   it('keeps caller-owned tuple replacements separate during each', () => {
@@ -336,41 +182,6 @@ describe('Query', () => {
     });
   });
 
-  it.each([false, true])('keeps cursor slots separate from fields (tracked: %s)', (tracked) => {
-    const Fields = trait({ $o: 5, $changed: 7, $0: 9, $t3: [1, 2], $$o: 13, toJSON: 11 });
-    const entity = world.spawn(Fields);
-    const changed = vi.fn();
-    if (tracked) world.onChange(Fields, changed);
-    const query = world.query(Fields);
-
-    query.each((fields) => {
-      expect([fields.$o, fields.$changed, fields.$0, fields.$t3, fields.$$o, fields.toJSON]).toEqual([
-        5,
-        7,
-        9,
-        [1, 2],
-        13,
-        11,
-      ]);
-      fields.$o++;
-      fields.$changed++;
-      fields.$0++;
-      fields.$t3 = [3, 4];
-      fields.$$o++;
-      fields.toJSON++;
-    });
-
-    expect(entity.get(Fields)).toEqual({
-      $o: 6,
-      $changed: 8,
-      $0: 10,
-      $t3: [3, 4],
-      $$o: 14,
-      toJSON: 12,
-    });
-    if (tracked) expect(changed).toHaveBeenCalledExactlyOnceWith(entity);
-  });
-
   it('keeps outer callback data intact during nested each iteration', () => {
     const first = world.spawn(Position({ x: 1 }));
     const second = world.spawn(Position({ x: 2 }));
@@ -414,34 +225,6 @@ describe('Query', () => {
     expect(visited).toEqual([first, second]);
   });
 
-  it('each should return values in caller parameter order regardless of cache', () => {
-    // Create entity with both traits
-    world.spawn(Position({ x: 10, y: 20 }), Name({ name: 'test' }));
-
-    // First query with order: Position, Name
-    world.query(Position, Name).each((position, name) => {
-      expect(position).toHaveProperty('x');
-      expect(position).toHaveProperty('y');
-      expect(name).toHaveProperty('name');
-      expect(name.name).toBe('test');
-    });
-
-    // Second query with REVERSED order: Name, Position
-    // This should return values in the order specified (Name first, Position second)
-    world.query(Name, Position).each((name, position) => {
-      expect(name).toHaveProperty('name', 'test');
-      expect(position).toHaveProperty('x');
-      expect(position).toHaveProperty('y');
-    });
-  });
-
-  it('should return the first entity in a query', () => {
-    const entityA = world.spawn(Position);
-
-    const entity = world.queryFirst(Position);
-    expect(entity).toBe(entityA);
-  });
-
   it('should implement Or', () => {
     const entityA = world.spawn(Position);
     const entityB = world.spawn(Foo);
@@ -473,18 +256,29 @@ describe('Query', () => {
     expect(world.query(ChildOf(IsPlayer))).not.toContain(childC);
   });
 
-  it('keeps concrete, wildcard and cached target queries distinct', () => {
-    const parent = world.spawn(IsPlayer);
+  it('keeps queries on one relation distinct by target and by their other parameters', () => {
+    const parent = world.spawn(IsPlayer, IsActive);
     const other = world.spawn();
-    const first = world.spawn(Position, ChildOf(parent));
-    const second = world.spawn(Position, ChildOf(other));
+    const positioned = world.spawn(Position, ChildOf(parent));
+    const stray = world.spawn(Position, ChildOf(other));
+    const named = world.spawn(Name, ChildOf(parent));
     const concrete = createQuery(Position, ChildOf(parent));
     const wildcard = createQuery(Position, ChildOf('*'));
     const filtered = createQuery(Position, ChildOf(createQuery(IsPlayer)));
 
-    expect([...world.query(concrete)]).toEqual([first]);
-    expect([...world.query(wildcard)]).toEqual([first, second]);
-    expect([...world.query(filtered)]).toEqual([first]);
+    expect([...world.query(concrete)]).toEqual([positioned]);
+    expect([...world.query(wildcard)]).toEqual([positioned, stray]);
+    expect([...world.query(filtered)]).toEqual([positioned]);
+
+    // Parameters listed before a relation filter have to survive into the query hash,
+    // otherwise these two queries share a cache entry and the second returns the first's
+    // entities.
+    expect([...world.query(Position, ChildOf(IsPlayer))]).toEqual([positioned]);
+    expect([...world.query(Name, ChildOf(IsPlayer))]).toEqual([named]);
+
+    // The same holds when the filter itself takes several parameters.
+    expect([...world.query(Position, ChildOf(IsPlayer, IsActive))]).toEqual([positioned]);
+    expect([...world.query(Name, ChildOf(IsPlayer, IsActive))]).toEqual([named]);
   });
 
   it('updates relation target filters when target query membership changes', () => {
@@ -508,22 +302,6 @@ describe('Query', () => {
     expect(world.query(ChildOf(IsPlayer))).toHaveLength(0);
     expect(onRemove).toHaveBeenCalledTimes(1);
     expect(onRemove).toHaveBeenCalledWith(child);
-  });
-
-  it('keeps queries distinct when they share a relation filter', () => {
-    const parent = world.spawn(IsPlayer, IsActive);
-    const positioned = world.spawn(Position, ChildOf(parent));
-    const named = world.spawn(Name, ChildOf(parent));
-
-    // Parameters listed before a relation filter have to survive into the query hash,
-    // otherwise these two queries share a cache entry and the second returns the first's
-    // entities.
-    expect(Array.from(world.query(Position, ChildOf(IsPlayer)))).toEqual([positioned]);
-    expect(Array.from(world.query(Name, ChildOf(IsPlayer)))).toEqual([named]);
-
-    // The same holds when the filter itself takes several parameters.
-    expect(Array.from(world.query(Position, ChildOf(IsPlayer, IsActive)))).toEqual([positioned]);
-    expect(Array.from(world.query(Name, ChildOf(IsPlayer, IsActive)))).toEqual([named]);
   });
 
   it('should select traits', () => {
@@ -650,46 +428,6 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('can sort query results', () => {
-    const world = createWorld({ retain: 0 });
-    const entityA = world.spawn(Position);
-    const entityB = world.spawn(Position);
-    const entityC = world.spawn(Position);
-    const entityD = world.spawn(Position);
-
-    let entities = world.query(Position);
-    expect(entities.first!).toBe(entityA);
-    expect(entities.at(1)).toBe(entityB);
-    expect(entities.at(2)).toBe(entityC);
-    expect(entities.at(3)).toBe(entityD);
-
-    entityC.destroy();
-
-    entities = world.query(Position);
-    expect(entities.first!).toBe(entityA);
-    expect(entities.at(1)).toBe(entityB);
-    expect(entities.at(2)).toBe(entityD);
-
-    // Recycles the entity id from entityC (3).
-    const entityE = world.spawn(Position);
-
-    entities = world.query(Position);
-    expect(entities.first!).toBe(entityA);
-    expect(entities.at(1)).toBe(entityB);
-    expect(entities.at(2)).toBe(entityD);
-    expect(entities.at(3)).toBe(entityE);
-
-    // Sorting a copy leaves the live view in the query's order.
-    const sorted = entities.toArray().sort((a, b) => a.id() - b.id());
-    expect(sorted).not.toBe(entities);
-    expect(entities.at(2)).toBe(entityD);
-
-    // The ids are consecutive in ascending order once entityE has recycled entityC's id.
-    for (let i = 0; i < sorted.length; i++) {
-      expect(sorted[i].id()).toBe(sorted[0].id() + i);
-    }
-  });
-
   it('cached query should return values after reset', () => {
     const movementQuery = createQuery(Foo);
 
@@ -742,32 +480,6 @@ describe('Query', () => {
     expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild, late]);
   });
 
-  it('keeps cached multi-target queries current as relations and targets change', () => {
-    const VisibleIn = relation();
-    const parent = world.spawn();
-    let viewport = world.spawn();
-    const child = world.spawn(Position, ChildOf(parent), VisibleIn(viewport));
-    const prefix = world.query(ChildOf(parent), Position);
-    const read = () => world.query(ChildOf(parent), VisibleIn(viewport), Position);
-    const view = read();
-    expect(read()).toBe(view);
-    expect(view.toArray()).toEqual([child]);
-
-    child.remove(VisibleIn(viewport));
-    expect(read()).toHaveLength(0);
-    child.add(VisibleIn(viewport));
-    expect(read().toArray()).toEqual([child]);
-
-    viewport.destroy();
-    expect(read()).toHaveLength(0);
-    expect(world.query(ChildOf(parent), Position)).toBe(prefix);
-    expect(prefix.toArray()).toEqual([child]);
-
-    viewport = world.spawn();
-    child.add(VisibleIn(viewport));
-    expect(read().toArray()).toEqual([child]);
-  });
-
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
     const result = world.query(Position);
@@ -784,20 +496,6 @@ describe('Query', () => {
     const copy = result.toArray();
     expect(copy).not.toBe(result);
     expect(copy).toEqual([second]);
-  });
-
-  it('shares a read-only entity array across query selections without copying', () => {
-    const first = world.spawn(Position, Foo);
-    const second = world.spawn(Position, Foo);
-    const query = world.query(Position, Foo);
-    const entities = query.entities;
-
-    expectTypeOf(entities).toEqualTypeOf<readonly Entity[]>();
-    expect(Array.isArray(entities)).toBe(true);
-    expect(query.entities).toBe(entities);
-    expect(query.select(Position).entities).toBe(entities);
-
-    expect(entities).toEqual([first, second]);
   });
 
   it('exposes only current members after removals, additions, and emptying a query', () => {
@@ -869,67 +567,6 @@ describe('Query', () => {
       if (tracked) expect(changed.mock.calls).toEqual([[replacement], [first], [second]]);
     }
   );
-
-  it('keeps a for...of sequence while nested walks change the query', () => {
-    const first = world.spawn(Position);
-    const second = world.spawn(Position);
-    const query = world.query(Position);
-    const visited: Entity[] = [];
-    let replacement!: Entity;
-
-    for (const entity of query) {
-      visited.push(entity);
-      if (entity !== first) continue;
-      query.each((_position, inner) => {
-        if (inner === first) second.destroy();
-      });
-      replacement = world.spawn(Position);
-      const nested = world.query(Position);
-      expect(nested.entities).toEqual([first, replacement]);
-      expect([...nested]).toEqual([first, replacement]);
-    }
-
-    // The loop still yields the entity destroyed under it.
-    expect(visited).toEqual([first, second]);
-    expect(second.isAlive()).toBe(false);
-    expect([...query]).toEqual([first, replacement]);
-  });
-
-  it('keeps a for...of sequence when a nested run consumes the next tracking batch', () => {
-    const Added = createAdded();
-    const ref = createQuery(Added(Position));
-    world.query(ref);
-    const first = world.spawn(Position);
-    const second = world.spawn(Position);
-    const batch = world.query(ref);
-    expect(batch.entities).toEqual([first, second]);
-    const visited: Entity[] = [];
-    let third!: Entity;
-
-    for (const entity of batch) {
-      visited.push(entity);
-      if (entity !== first) continue;
-      third = world.spawn(Position);
-      expect([...world.query(ref)]).toEqual([third]);
-    }
-
-    expect(visited).toEqual([first, second]);
-    expect(batch.entities).toEqual([third]);
-    expect(world.query(ref).entities).toEqual([]);
-  });
-
-  it('keeps the zero-copy entities array when a change follows a finished for of loop', () => {
-    const first = world.spawn(Position);
-    world.spawn(Position);
-    const query = world.query(Position);
-    const before = query.entities;
-
-    for (const _entity of query);
-    for (const _entity of query) break;
-    first.remove(Position);
-
-    expect(query.entities).toBe(before);
-  });
 
   it('applies a destroy made inside a for of loop that breaks', () => {
     const first = world.spawn(Position);

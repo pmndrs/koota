@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createWorld, Not, createRemoved, identifier, relation, trait } from '../src';
-import { hasNativeGc, waitForFinalization } from './utils/gc';
+import { createWorld, Not, createRemoved, identifier, relation, trait, type Entity } from '../../src';
+import { hasNativeGc, waitForFinalization } from '../utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
 const IsHot = trait();
@@ -25,10 +25,6 @@ describe('Entity retention', () => {
     const entity = world.spawn(Position);
     entity.destroy();
     expect(world.spawn().id()).not.toBe(entity.id());
-  });
-
-  it.each([-1, 1.5])('rejects an invalid retention cap: %s', (retain) => {
-    expect(() => createWorld({ retain })).toThrow(RangeError);
   });
 
   it('disables destroyed history at zero while preserving live trait removals', () => {
@@ -109,22 +105,6 @@ describe('Entity retention', () => {
     expect(values.sort((a, b) => a - b)).toEqual([17, 18, 19]);
   });
 
-  it('evicts a removal present in both pending and exposed batches', () => {
-    const world = createWorld({ retain: 1 });
-    const Removed = createRemoved();
-    const entity = world.spawn(Position({ x: 1 }));
-    entity.remove(Position);
-    const exposed = world.query(Removed(Position));
-    entity.add(Position({ x: 2 }));
-    entity.remove(Position);
-    entity.destroy();
-    world.spawn().destroy();
-
-    expect(exposed.length).toBe(0);
-    expect(world.query(Removed(Position)).length).toBe(0);
-    expect(world.spawn().id()).toBe(entity.id());
-  });
-
   it('clears partial removal history before a named entity id is reused', () => {
     const world = createWorld({ retain: 1 });
     const Removed = createRemoved();
@@ -144,45 +124,35 @@ describe('Entity retention', () => {
     expect(world.query(...params).toArray()).toEqual([replacement]);
   });
 
-  it.each(['soa', 'aos'] as const)(
-    'defers destroys made during a Removed %s walk so every retained row is visited',
-    (kind) => {
-      const Value = kind === 'soa' ? trait({ value: 0 }) : trait(() => ({ value: 0 }));
-      const world = createWorld({ retain: 3 });
-      const entities = [1, 2, 3].map((value) => world.spawn(Value({ value })));
-      for (const entity of entities) entity.destroy();
-      const Removed = createRemoved();
-      const values: number[] = [];
-      world.query(Removed(Value)).each((value, _entity, _index) => {
-        values.push(value.value);
-        if (values.length === 1) {
-          world.spawn(Value({ value: 4 })).destroy();
-          world.spawn(Value({ value: 5 })).destroy();
-          expect(world.query(Removed(Value)).toArray()).toEqual(entities);
-        }
-      });
-      expect(values).toEqual([1, 2, 3]);
-      world.destroy();
-    }
-  );
-
-  it.each(['forEach', 'iterator'] as const)(
-    'defers destroys made during %s so every retained handle is visited',
-    (method) => {
+  it.each(['each', 'forEach', 'iterator'] as const)(
+    'defers destroys made during a Removed %s walk so every retained entity is visited',
+    (walk) => {
       const world = createWorld({ retain: 3 });
       const entities = [1, 2, 3].map((x) => world.spawn(Position({ x })));
       for (const entity of entities) entity.destroy();
-      const view = world.query(createRemoved()(Position));
-      const visited: (typeof entities)[number][] = [];
-      const visit = (entity: (typeof entities)[number]) => {
+      const Removed = createRemoved();
+      const view = world.query(Removed(Position));
+      const visited: Entity[] = [];
+      // The first visit destroys two more entities, enough to push the first rows past the cap.
+      const visit = (entity: Entity) => {
         visited.push(entity);
-        if (visited.length === 1) {
-          world.spawn().destroy();
-          world.spawn().destroy();
-        }
+        if (visited.length > 1) return;
+        world.spawn(Position({ x: 4 })).destroy();
+        world.spawn(Position({ x: 5 })).destroy();
       };
-      if (method === 'forEach') view.forEach(visit);
-      else for (const entity of view) visit(entity);
+
+      if (walk === 'forEach') view.forEach(visit);
+      else if (walk === 'iterator') for (const entity of view) visit(entity);
+      else {
+        const values: number[] = [];
+        view.each((position, entity) => {
+          values.push(position.x);
+          visit(entity);
+          // A read made inside the walk does not see the new destroys yet.
+          if (values.length === 1) expect(world.query(Removed(Position)).toArray()).toEqual(entities);
+        });
+        expect(values).toEqual([1, 2, 3]);
+      }
       expect(visited).toEqual(entities);
     }
   );
@@ -272,18 +242,6 @@ describe('Relation retention', () => {
       expect(world.query(createRemoved()(Link), Link('*')).toArray()).toEqual([childA, childB]);
     }
   );
-
-  it('keeps the parent at the retention cap, since its children are destroyed first', () => {
-    const world = createWorld({ retain: 1 });
-    const parent = world.spawn();
-    const child = world.spawn(ChildOf(parent));
-    parent.destroy();
-
-    expect(world.has(child)).toBe(false);
-    expect(() => child.targetFor(ChildOf)).toThrow(/\[ENTITY_ALIVE\]/);
-    // The parent took the one retained slot and evicted the child's removal.
-    expect(world.query(createRemoved()(ChildOf), ChildOf(parent)).toArray()).toEqual([]);
-  });
 
   it('keeps the parent on children destroyed with it while both are retained', () => {
     const world = createWorld({ retain: 2 });

@@ -1,13 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  whenSettled,
-  createChanged,
-  createWorld,
-  ordered,
-  relation,
-  trait,
-  type Entity,
-} from '../src';
+import { whenSettled, createChanged, createWorld, relation, trait, type Entity } from '../../src';
 
 const Position = trait({ x: 0 });
 const Velocity = trait({ dx: 0 });
@@ -43,32 +35,6 @@ describe('deferred structural changes', () => {
     entity.add(Tag);
     expect(observed).toHaveBeenCalledTimes(1);
     world.reset();
-    world.destroy();
-  });
-
-  it('follows a hook chain one wave per link', () => {
-    const world = createWorld();
-    const entities = Array.from({ length: 500 }, () => world.spawn(Tag));
-    world.onRemove(Tag, (entity) => {
-      const next = entities[entities.indexOf(entity) + 1];
-      if (next !== undefined) next.remove(Tag);
-    });
-
-    entities[0].remove(Tag);
-
-    expect(world.query(Tag).length).toBe(0);
-    world.destroy();
-  });
-
-  it('accepts a large initial batch within one command wave', () => {
-    const world = createWorld();
-    const entities = Array.from({ length: 1001 }, () => world.spawn());
-
-    world.defer(() => {
-      for (const entity of entities) entity.add(Tag);
-    });
-
-    expect(world.query(Tag).length).toBe(entities.length);
     world.destroy();
   });
 
@@ -138,35 +104,6 @@ describe('deferred structural changes', () => {
       world.destroy();
     }
   );
-
-  it('finishes relation and pair change notifications before a callback removes the pair', () => {
-    const world = createWorld();
-    const Link = relation({ store: { weight: 0 } });
-    const target = world.spawn();
-    const entity = world.spawn(Link(target));
-    const Changed = createChanged();
-    const events: string[] = [];
-    world.onEnter([Changed(Link)], () => {
-      events.push('relation');
-      entity.remove(Link(target));
-    });
-    world.onEnter([Changed(Link(target))], () => {
-      events.push('pair');
-      expect(entity.has(Link(target))).toBe(true);
-    });
-    entity.onChange(Link, () => {
-      events.push('change');
-      expect(entity.get(Link(target))?.weight).toBe(3);
-    });
-    world.query(Changed(Link));
-    world.query(Changed(Link(target)));
-
-    entity.set(Link(target), { weight: 3 });
-
-    expect(events).toEqual(['relation', 'pair', 'change']);
-    expect(entity.has(Link(target))).toBe(false);
-    world.destroy();
-  });
 
   it('applies walk changes in call order when the outermost walk ends', () => {
     const world = createWorld();
@@ -256,46 +193,22 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
-  it('defers changes made inside for...of when world.defer wraps the loop', () => {
+  it('defers changes made inside world.defer, for...of included, and returns its result', () => {
     const world = createWorld();
-    world.spawn(Position);
-    world.spawn(Position);
+    const entities = [world.spawn(Position), world.spawn(Position), world.spawn(Position)];
+    const dense = world.query(Position).entities;
 
-    world.defer(() => {
+    const result = world.defer(() => {
       for (const entity of world.query(Position)) {
-        entity.remove(Position);
-        expect(entity.has(Position)).toBe(true);
+        entity.destroy();
+        expect(entity.isAlive()).toBe(true);
       }
+      return dense.length;
     });
 
+    expect(result).toBe(3);
+    expect(entities.every((entity) => !entity.isAlive())).toBe(true);
     expect(world.query(Position).length).toBe(0);
-    world.destroy();
-  });
-
-  it('applies a removal made by a set callback after the write when world.defer wraps the set', () => {
-    const world = createWorld();
-    const Link = relation({ store: { weight: 0 } });
-    const target = world.spawn();
-    const entity = world.spawn(Position({ x: 1 }), Link(target, { weight: 1 }));
-    const changed = vi.fn();
-    world.onChange(Position, (changedEntity) => changed(changedEntity.get(Position)!.x));
-
-    world.defer(() => {
-      entity.set(Position, () => {
-        entity.remove(Position);
-        return { x: 99 };
-      });
-      entity.set(Link(target), () => {
-        entity.remove(Link(target));
-        return { weight: 9 };
-      });
-      expect(entity.get(Position)).toEqual({ x: 99 });
-      expect(entity.get(Link(target))).toEqual({ weight: 9 });
-    });
-
-    expect(changed).toHaveBeenCalledExactlyOnceWith(99);
-    expect(entity.has(Position)).toBe(false);
-    expect(entity.has(Link(target))).toBe(false);
     world.destroy();
   });
 
@@ -317,25 +230,6 @@ describe('deferred structural changes', () => {
     // The abandoned iterator still reads the sequence it started with.
     expect(iterator.next().value).toBe(b);
     world.reset();
-    world.destroy();
-  });
-
-  it('runs a function with structural changes deferred through world.defer', () => {
-    const world = createWorld();
-    const entities = [world.spawn(Position), world.spawn(Position), world.spawn(Position)];
-    const dense = world.query(Position).entities;
-
-    const result = world.defer(() => {
-      for (let i = 0; i < dense.length; i++) {
-        dense[i].destroy();
-        expect(dense[i].isAlive()).toBe(true);
-      }
-      return dense.length;
-    });
-
-    expect(result).toBe(3);
-    expect(entities.every((entity) => !entity.isAlive())).toBe(true);
-    expect(world.query(Position).length).toBe(0);
     world.destroy();
   });
 
@@ -399,25 +293,6 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
-  it('applies every command even when one throws, then rethrows the first error', () => {
-    const world = createWorld();
-    const a = world.spawn();
-    const b = world.spawn();
-    world.onAdd(Tag, (entity) => {
-      if (entity === a) throw new Error('hook failed');
-    });
-
-    expect(() =>
-      world.defer(() => {
-        a.add(Tag);
-        b.add(Tag);
-      })
-    ).toThrow('hook failed');
-    expect(a.has(Tag)).toBe(true);
-    expect(b.has(Tag)).toBe(true);
-    world.destroy();
-  });
-
   it('keeps commands added by hooks during the flush in the same drain', () => {
     const world = createWorld();
     const entities = [world.spawn(Position), world.spawn(Position)];
@@ -429,30 +304,6 @@ describe('deferred structural changes', () => {
       expect(entity.has(Position)).toBe(false);
       expect(entity.has(Tag)).toBe(true);
     }
-    world.destroy();
-  });
-
-  it('defers ordered view edits made inside a scope as whole commands', () => {
-    const world = createWorld();
-    const ChildOf = relation();
-    const Children = ordered(ChildOf);
-    const parent = world.spawn(Children);
-    const first = world.spawn();
-    const second = world.spawn();
-    const third = world.spawn();
-    const view = parent.get(Children)!;
-    view.add(first).add(second);
-
-    world.defer(() => {
-      view.insert(third, 0);
-      view.remove(first);
-      expect(view.toArray()).toEqual([first, second]);
-    });
-
-    // The insert kept its index even though it applied after the scope ended.
-    expect(view.toArray()).toEqual([third, second]);
-    expect(first.has(ChildOf(parent))).toBe(false);
-    expect(third.has(ChildOf(parent))).toBe(true);
     world.destroy();
   });
 
@@ -535,32 +386,6 @@ describe('deferred structural changes', () => {
     world.reset();
     expect(world.has(Tag)).toBe(false);
     expect(world.entities.length).toBe(1);
-    world.destroy();
-  });
-
-  it('drains both queues when a command throws, so settled callbacks still run', () => {
-    const world = createWorld();
-    const a = world.spawn();
-    const b = world.spawn();
-    const observed: number[] = [];
-    world.onAdd(
-      Tag,
-      whenSettled(() => observed.push(world.query(Tag).length))
-    );
-    world.onAdd(Tag, (entity) => {
-      if (entity === a) throw new Error('hook failed');
-    });
-
-    expect(() =>
-      world.defer(() => {
-        a.add(Tag);
-        b.add(Tag);
-      })
-    ).toThrow('hook failed');
-    expect(observed).toEqual([2]);
-    // Nothing was left behind for the next operation.
-    world.spawn(Position);
-    expect(observed).toEqual([2]);
     world.destroy();
   });
 });

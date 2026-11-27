@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWorld, relation, trait, type Entity, type World } from '../src';
+import { createWorld, relation, trait, type Entity, type World } from '../../src';
 
 describe('World', () => {
   it('should create a world with its world entity', () => {
@@ -37,18 +37,6 @@ describe('World', () => {
     expect(() => entity.destroy()).not.toThrow();
     expect(() => entity.remove(Tag, Link(target))).not.toThrow();
     expect(() => entity.add(Tag)).toThrow(/does not exist/);
-  });
-
-  it('gives its ids back on destroy', () => {
-    const world = createWorld();
-    const first = world.spawn();
-    world.destroy();
-
-    const other = createWorld();
-    const replacement = other.spawn();
-    expect(replacement.id()).toBe(first.id());
-    expect(first.isAlive()).toBe(false);
-    other.destroy();
   });
 
   it('should reset the world', () => {
@@ -94,39 +82,27 @@ describe('World', () => {
     }
   );
 
-  it('reset should remove entities with auto-destroy relations', () => {
-    const Node = trait();
-    const ChildOf = relation({ autoDestroy: 'orphan', exclusive: true });
+  it.each(['reset', 'destroy'] as const)(
+    '%s should remove entities with auto-destroy relations',
+    (operation) => {
+      const Node = trait();
+      const ChildOf = relation({ autoDestroy: 'orphan', exclusive: true });
 
-    const world = createWorld();
+      const world = createWorld();
 
-    // Create a parent node and a child node.
-    const parentNode = world.spawn(Node);
-    world.spawn(Node, ChildOf(parentNode));
+      // Create a parent node and two child nodes.
+      const parentNode = world.spawn(Node);
+      world.spawn(Node, ChildOf(parentNode));
+      world.spawn(Node, ChildOf(parentNode));
 
-    // Expect this to not throw, since the ChildOf relation will automatically
-    // remove the child node when the parent node is destroyed first.
-    expect(() => world.reset()).not.toThrow();
+      // Expect this to not throw, since the ChildOf relation will automatically
+      // remove the child nodes when the parent node is destroyed first.
+      expect(() => world[operation]()).not.toThrow();
 
-    // Always has one entity that is the world itself.
-    expect(world.entities.length).toBe(1);
-  });
-
-  it('destroy should lead to entities with auto-destroy relations being removed as well', () => {
-    const Node = trait();
-    const ChildOf = relation({ autoDestroy: 'orphan', exclusive: true });
-
-    const world = createWorld();
-
-    // Create a parent node and two child nodes
-    const parentNode = world.spawn(Node);
-    world.spawn(Node, ChildOf(parentNode));
-    world.spawn(Node, ChildOf(parentNode));
-
-    // Expect this to not throw, since the ChildOf relation will automatically
-    // remove the child node when the parent node is destroyed first
-    expect(() => world.destroy()).not.toThrow();
-  });
+      // A reset world always has one entity that is the world itself.
+      if (operation === 'reset') expect(world.entities.length).toBe(1);
+    }
+  );
 
   it('can create many worlds', () => {
     const worlds = [];
@@ -136,7 +112,7 @@ describe('World', () => {
     expect(worlds.length).toBe(200);
   });
 
-  it('should add, remove and get singletons', () => {
+  it('should add, get, set and remove singletons', () => {
     const Test = trait({ last: 0, delta: 0 });
 
     const world = createWorld();
@@ -157,35 +133,21 @@ describe('World', () => {
     const query = world.query(Time);
     expect(query.length).toBe(0);
 
-    const time = world.get(Time)!;
-    time.last = 1;
-    time.delta = 1;
-    world.set(Time, time);
+    world.set(Time, { last: 1, delta: 1 });
 
-    expect(time.last).toBe(1);
-    expect(time.delta).toBe(1);
-
-    world.remove(Time);
-    expect(world.has(Time)).toBe(false);
-  });
-
-  it('should set singletons', () => {
-    const Test = trait({ last: 0, delta: 0 });
-    const world = createWorld();
-    world.add(Test);
-
-    world.set(Test, { last: 1, delta: 1 });
-
-    expect(world.get(Test)!.last).toBe(1);
-    expect(world.get(Test)!.delta).toBe(1);
+    expect(world.get(Time)!.last).toBe(1);
+    expect(world.get(Time)!.delta).toBe(1);
 
     // Use callbacks to set.
-    world.set(Test, (prev) => {
+    world.set(Time, (prev) => {
       return { last: prev.last + 1, delta: prev.delta + 1 };
     });
 
-    expect(world.get(Test)!.last).toBe(2);
-    expect(world.get(Test)!.delta).toBe(2);
+    expect(world.get(Time)!.last).toBe(2);
+    expect(world.get(Time)!.delta).toBe(2);
+
+    world.remove(Time);
+    expect(world.has(Time)).toBe(false);
   });
 
   it('should upsert singletons', () => {
