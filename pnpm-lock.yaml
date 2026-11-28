@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@pmndrs/labs':
-      specifier: ^0.13.0
-      version: 0.13.0
+      specifier: ^0.13.1
+      version: 0.13.1
     '@react-three/drei':
       specifier: ^10.7.9
       version: 10.7.9
@@ -111,7 +111,7 @@ importers:
     dependencies:
       '@pmndrs/labs':
         specifier: 'catalog:'
-        version: 0.13.0
+        version: 0.13.1
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.3.0)(react@19.3.1)
@@ -434,7 +434,7 @@ importers:
     dependencies:
       '@pmndrs/labs':
         specifier: 'catalog:'
-        version: 0.13.0
+        version: 0.13.1
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
@@ -1041,8 +1041,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@pmndrs/labs@0.13.0':
-    resolution: {integrity: sha512-P2CySI3bZO7zl2+KrhaasSmYxVzGm8M88S9esgPtt2SGAIMhH8qMR0Puy/VzIvgybXeNdxXTwfvVJ4MQmkkVpw==}
+  '@pmndrs/labs@0.13.1':
+    resolution: {integrity: sha512-w0qzvqmfDvVnmLRphFwlGuJ8uLWg2KUSPUIq6/hPJQU5LLJn6iNWSGTEECQ68KG+zvIWnxBBfhbJKQPvGbU1qw==}
     engines: {node: '>=22.18.0'}
     hasBin: true
 
@@ -2904,7 +2904,7 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.89.0':
     optional: true
 
-  '@pmndrs/labs@0.13.0':
+  '@pmndrs/labs@0.13.1':
     dependencies:
       '@clack/prompts': 1.8.1
       '@noble/hashes': 2.4.0
