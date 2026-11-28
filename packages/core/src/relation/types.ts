@@ -8,6 +8,7 @@ import type { MutableOrderedView } from '../view/types';
 import type { $orderedTargetsTrait, $relation, $relationPair } from './relation';
 
 export type RelationTarget = Entity | '*';
+export type RelationTargetPages = ((Entity | Entity[] | undefined)[] | undefined)[];
 export type RelationInputTarget =
   RelationTarget | Query<QueryParameter[]> | readonly QueryParameter[];
 
@@ -95,6 +96,9 @@ export type Relation<T extends Trait = Trait, Exclusive extends boolean = boolea
   [$internal]: {
     trait: T;
     exclusive: Exclusive;
+    /** Forward target pages of worlds that share entity ids. */
+    sharedTargets: RelationTargetPages | undefined;
+    sharedTargetPageCount: number;
     autoDestroy: 'source' | 'target' | false;
     scopedIdentifiers: Identifier[] | undefined;
   };

@@ -24,6 +24,7 @@ import { IsExcluded } from '../query/terms';
 import { growTrackerTables } from '../query/tracking';
 import type { Query, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { query, queryFirst } from '../query/view';
+import { clearSharedTargetPages } from '../relation/target-pages';
 import type { Relation, RelationPair } from '../relation/types';
 import {
   subscribeAdd,
@@ -347,6 +348,7 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
 
     // Clear shared pages before their ids can be leased by another world.
     if (ctx.entityIndex.allocator === sharedAllocator) {
+      clearSharedTargetPages(ctx);
       clearMaskPages(ctx.entityMasks, ctx.entityIndex.ownedPages);
       // Every shared world registers IsExcluded for its world entity.
       releaseMaskSlots(ctx.traits, IsExcluded[$internal].sharedMask.users === 1);

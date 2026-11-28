@@ -170,4 +170,19 @@ describe('Isolated worlds', () => {
     },
     20_000
   );
+
+  it.skipIf(!hasNativeGc())(
+    'releases relation target lists when the world is dropped',
+    async () => {
+      await expect(
+        waitForFinalization((registry) => {
+          const world = createWorld();
+          const parent = world.spawn();
+          world.spawn(ChildOf(parent));
+          world.query(ChildOf('*')).each((targets) => registry.register(targets, 'targets'));
+        })
+      ).resolves.toBe(true);
+    },
+    20_000
+  );
 });

@@ -35,10 +35,10 @@ import {
   setPairRecord,
   setPairRecordAt,
 } from './records';
+import { createTargetPage } from './target-pages';
 import {
   addToRelationSources,
   clearRetainedTargets,
-  ensureRelationPage,
   getExclusiveTarget,
   getStoredRelationTargets,
   getTargetIndex,
@@ -343,14 +343,10 @@ export function addRelationTarget(
   const traitData = getTraitInstance(ctx.traitInstances, baseTrait)!;
   if (assertsEnabled) assertRelationMembership(ctx, entity, traitData);
 
-  if (!traitData.relationTargets) {
-    traitData.relationTargets = [];
-  }
-
   const eid = getEntityId(entity);
   const p = eid >>> 10,
     o = eid & 1023;
-  const page = ensureRelationPage(traitData.relationTargets, p);
+  const page = traitData.relationTargets?.[p] ?? createTargetPage(ctx, relation, traitData, p);
 
   let targetIndex: number;
 
@@ -382,7 +378,8 @@ function commitScopedRelationTarget(
   const trait = relation[$internal].trait;
   const data = ctx.traitInstances[trait.id]!;
   const eid = getEntityId(entity);
-  const page = ((data.relationTargets ??= [])[eid >>> 10] ??= []);
+  const pageId = eid >>> 10;
+  const page = data.relationTargets?.[pageId] ?? createTargetPage(ctx, relation, data, pageId);
   const previous = page[eid & 1023] as Entity | undefined;
   if (previous !== undefined) {
     removeFromRelationSources(data, entity, previous, 0);

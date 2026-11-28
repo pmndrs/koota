@@ -70,6 +70,30 @@ describe('Relation', () => {
     expect(target).toBe(undefined);
   });
 
+  it.each(['reset', 'destroy'] as const)(
+    'keeps relation targets local across world %s',
+    (operation) => {
+      const Parent = relation({ exclusive: true });
+      const parent = world.spawn();
+      const child = world.spawn(Parent(parent));
+
+      const old = createWorld();
+      const formerChild = old.spawn();
+      const formerParent = old.spawn();
+      formerChild.add(Parent(formerParent));
+      formerChild.destroy();
+      old[operation]();
+
+      const next = operation === 'reset' ? old : createWorld();
+      const fresh = next.spawn();
+      expect(fresh.targetFor(Parent)).toBeUndefined();
+      expect(fresh.has(Parent('*'))).toBe(false);
+      expect(child.targetFor(Parent)).toBe(parent);
+      expect(child.has(Parent(parent))).toBe(true);
+      next.destroy();
+    }
+  );
+
   it('exclusive relations should allow targeting entity 0', () => {
     const Targeting = relation({ exclusive: true });
     const worldEntity = world.entities[0]!;
